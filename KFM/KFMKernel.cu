@@ -264,7 +264,9 @@ class KFMSwitch : public KFMFilterBase
     MergeBlock<pixel_t>(baseFrame, frame60, mflag, dst, env);
 
     // プロパティをコピー
-    env->CopyFrameProps(baseFrame.frame, dst.frame);
+    env->copyFrameProps(baseFrame.frame, dst.frame);
+    // old Neo FrameProp style
+    //env->CopyFrameProps(baseFrame.frame, dst.frame);
 
     return dst;
   }
@@ -291,11 +293,20 @@ class KFMSwitch : public KFMFilterBase
         // ここでは60fpsに決定してるので、
         // 次のGetFrameでこのフレームが必要なことは決定している
         baseFrame = ucfclip->GetFrame(n60, env);
-        auto prop = baseFrame.GetProperty(DECOMB_UCF_FLAG_STR);
+        // avs+ frameprop style
+        int error;
+        int qpflag = (int)env->propGetInt(env->getFramePropsRO(baseFrame.frame), DECOMB_UCF_FLAG_STR, 0, &error); // (int)qp.GetProperty("DEBLOCK_QP_FLAG")->GetInt();
+        if (error) {
+          env->ThrowError("Invalid UCF clip");
+        }
+        auto flag = (DECOMB_UCF_FLAG)qpflag;
+        // Neo fp style
+        /*auto prop = baseFrame.GetProperty(DECOMB_UCF_FLAG_STR);
         if (prop == nullptr) {
           env->ThrowError("Invalid UCF clip");
         }
         auto flag = (DECOMB_UCF_FLAG)prop->GetInt();
+        */
         // フレーム置換がされた場合は、60p部分マージ処理を実行する
         if (flag != DECOMB_UCF_NEXT && flag != DECOMB_UCF_PREV) {
           return info;
@@ -467,7 +478,12 @@ class KFMSwitch : public KFMFilterBase
     if (mode != ONLY_FRAME_DURATION) {
       dst = InternalGetFrame<pixel_t>(n60, info, env);
 
-      if (dst.GetProperty("KFM_SourceStart") == nullptr) {
+      // avs+ frameprop style
+      int error;
+      env->propGetInt(env->getFramePropsRO(dst.frame), "KFM_SourceStart", 0, &error); // check existance only
+      if(error) {
+      // Neo fp stlye
+      //if (dst.GetProperty("KFM_SourceStart") == nullptr) {
         // プロパティがない場合はここで追加する
         int start, end;
         switch (info.baseType) {
@@ -484,9 +500,14 @@ class KFMSwitch : public KFMFilterBase
           end = cycleStart + (frameInfo.fieldStartIndex + frameInfo.numFields + 1) / 2;
           break;
         }
-        env->MakePropertyWritable(&dst.frame);
-        dst.SetProperty("KFM_SourceStart", start);
-        dst.SetProperty("KFM_NumSourceFrames", end - start);
+        // avs+ style
+        auto avsmap = env->getFramePropsRW(dst.frame);
+        env->propSetInt(avsmap, "KFM_SourceStart", start, AVSPropAppendMode::PROPAPPENDMODE_REPLACE);
+        env->propSetInt(avsmap, "KFM_NumSourceFrames", end - start, AVSPropAppendMode::PROPAPPENDMODE_REPLACE);
+        // old Neo FrameProp style
+        //env->MakePropertyWritable(&dst.frame);
+        //dst.SetProperty("KFM_SourceStart", start);
+        //dst.SetProperty("KFM_NumSourceFrames", end - start);
       }
     }
     else {

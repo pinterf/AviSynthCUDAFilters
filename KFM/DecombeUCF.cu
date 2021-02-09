@@ -1750,9 +1750,14 @@ public:
           PVideoFrame frame = dweaveclip->GetFrame(n60, env);
           int sourceStart = n60 / 2;
           int sourceEnd = (n60 + 2 + 1) / 2;
-          env->MakePropertyWritable(&frame);
-          frame->SetProperty("KFM_SourceStart", sourceStart);
-          frame->SetProperty("KFM_NumSourceFrames", sourceEnd - sourceStart);
+          // avs+ style
+          auto avsmap = env->getFramePropsRW(frame);
+          env->propSetInt(avsmap, "KFM_SourceStart", sourceStart, AVSPropAppendMode::PROPAPPENDMODE_REPLACE);
+          env->propSetInt(avsmap, "KFM_NumSourceFrames", sourceEnd - sourceStart, AVSPropAppendMode::PROPAPPENDMODE_REPLACE);
+          // old Neo FrameProp style
+          //env->MakePropertyWritable(&frame);
+          //frame->SetProperty("KFM_SourceStart", sourceStart);
+          //frame->SetProperty("KFM_NumSourceFrames", sourceEnd - sourceStart);
           return frame;
         }
       }
@@ -1763,18 +1768,28 @@ public:
           // 1枚目のフィールドは綺麗 -> 後ろのフィールドは汚いので前のフィールドを使って補間
           PVideoFrame frame = beforeclip->GetFrame(n60start, env);
           int sourceStart = n60start / 2;
-          env->MakePropertyWritable(&frame);
-          frame->SetProperty("KFM_SourceStart", sourceStart);
-          frame->SetProperty("KFM_NumSourceFrames", 1);
+          // avs+ style
+          auto avsmap = env->getFramePropsRW(frame);
+          env->propSetInt(avsmap, "KFM_SourceStart", sourceStart, AVSPropAppendMode::PROPAPPENDMODE_REPLACE);
+          env->propSetInt(avsmap, "KFM_NumSourceFrames", 1, AVSPropAppendMode::PROPAPPENDMODE_REPLACE);
+          // old Neo FrameProp style
+          //env->MakePropertyWritable(&frame);
+          //frame->SetProperty("KFM_SourceStart", sourceStart);
+          //frame->SetProperty("KFM_NumSourceFrames", 1);
           return frame;
         }
         else if (cleanField[1]) {
           // 2枚目のフィールドは綺麗 -> 前のフィールドは汚いので後ろのフィールドを使って補間
           PVideoFrame frame = afterclip->GetFrame(n60start + 1, env);
           int sourceStart = (n60start + 1) / 2;
-          env->MakePropertyWritable(&frame);
-          frame->SetProperty("KFM_SourceStart", sourceStart);
-          frame->SetProperty("KFM_NumSourceFrames", 1);
+          // avs+ style
+          auto avsmap = env->getFramePropsRW(frame);
+          env->propSetInt(avsmap, "KFM_SourceStart", sourceStart, AVSPropAppendMode::PROPAPPENDMODE_REPLACE);
+          env->propSetInt(avsmap, "KFM_NumSourceFrames", 1, AVSPropAppendMode::PROPAPPENDMODE_REPLACE);
+          // old Neo FrameProp style
+          //env->MakePropertyWritable(&frame);
+          //frame->SetProperty("KFM_SourceStart", sourceStart);
+          //frame->SetProperty("KFM_NumSourceFrames", 1);
           return frame;
         }
       }
@@ -1958,7 +1973,10 @@ public:
     }
 
     PVideoFrame res = env->NewVideoFrame(vi);
-    res->SetProperty(DECOMB_UCF_FLAG_STR, (AVSMapValue)(int)flag);
+    // upstream Avisynth+  frame prop method
+    AVSMap* avsmap = env->getFramePropsRW(res);
+    env->propSetInt(avsmap, DECOMB_UCF_FLAG_STR, (int)flag, AVSPropAppendMode::PROPAPPENDMODE_REPLACE);
+    //res->SetProperty(DECOMB_UCF_FLAG_STR, (AVSMapValue)(int)flag);
     return res;
   }
 
@@ -2080,7 +2098,13 @@ public:
     // 前後のフレームも考慮する
     for (int i = -1; i < 2; ++i) {
       PVideoFrame frame = flagclip->GetFrame(n60 + i, env);
+      int error;
+      auto flag = (DECOMB_UCF_FLAG)env->propGetInt(env->getFramePropsRO(frame), DECOMB_UCF_FLAG_STR, 0, &error);
+      if (error) flag = (DECOMB_UCF_FLAG)(-1);
+      /*
+      * Neo style fp
       auto flag = (DECOMB_UCF_FLAG)frame->GetProperty(DECOMB_UCF_FLAG_STR, -1);
+      */
       if (flag == DECOMB_UCF_NR) {
         useNR = true;
       }
@@ -2124,10 +2148,15 @@ public:
       res = child->GetFrame(n60, env);
     }
 
-    env->MakePropertyWritable(&res);
-    env->CopyFrameProps(centerFrame, res);
-    res->SetProperty("KFM_SourceStart", n60 / 2);
-    res->SetProperty("KFM_NumSourceFrames", 1);
+    env->copyFrameProps(centerFrame, res);
+    auto avsmap = env->getFramePropsRW(res);
+    env->propSetInt(avsmap, "KFM_SourceStart", n60 / 2, AVSPropAppendMode::PROPAPPENDMODE_REPLACE);
+    env->propSetInt(avsmap, "KFM_NumSourceFrames", 1, AVSPropAppendMode::PROPAPPENDMODE_REPLACE);
+    // old Neo FrameProp style
+    //env->MakePropertyWritable(&res);
+    //env->CopyFrameProps(centerFrame, res);
+    //res->SetProperty("KFM_SourceStart", n60 / 2);
+    //res->SetProperty("KFM_NumSourceFrames", 1);
 
     return res;
   }

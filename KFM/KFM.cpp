@@ -22,8 +22,8 @@ void OnCudaError(cudaError_t err) {
 }
 
 bool IsAligned(Frame& frame, const VideoInfo& vi, PNeoEnv env) {
-	int frame_align = (int)env->GetProperty(AEP_FRAME_ALIGN);
-	int plane_align = (int)env->GetProperty(AEP_PLANE_ALIGN);
+	int frame_align = (int)env->GetEnvProperty(AEP_FRAME_ALIGN);
+	int plane_align = (int)env->GetEnvProperty(AEP_PLANE_ALIGN);
 
 	const int planesYUV[] = { 0/*PLANAR_Y*/, PLANAR_U, PLANAR_V, PLANAR_A };
 	const int planesRGB[] = { 0/*PLANAR_G*/, PLANAR_B, PLANAR_R, PLANAR_A };

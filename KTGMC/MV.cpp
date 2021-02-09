@@ -2744,8 +2744,11 @@ public:
 
       // fill all vectors with invalid data
       pAnalyzer->WriteDefault(pDst);
-
-      dst->SetProperty(GetAnalyzeValidPropName(), false);
+      // Avisynth+ style
+      auto avsmap = env->getFramePropsRW(dst);
+      env->propSetInt(avsmap, GetAnalyzeValidPropName(), false, AVSPropAppendMode::PROPAPPENDMODE_REPLACE);
+      // old Neo frameprop style
+      // dst->SetProperty(GetAnalyzeValidPropName(), false);
 
       return dst;
     }
@@ -2779,7 +2782,11 @@ public:
     for (int b = 0; b < numBatch; ++b) {
       // フレーム確保
       batchFrames[b] = env->NewVideoFrame(vi);
-      batchFrames[b]->SetProperty(GetAnalyzeValidPropName(), true);
+      // Avisynth+ style
+      auto avsmap = env->getFramePropsRW(batchFrames[b]);
+      env->propSetInt(avsmap, GetAnalyzeValidPropName(), true, AVSPropAppendMode::PROPAPPENDMODE_REPLACE);
+      // old Neo frameprop style
+      // batchFrames[b]->SetProperty(GetAnalyzeValidPropName(), true);
       ppOut[b] = reinterpret_cast<VECTOR*>(batchFrames[b]->GetWritePtr());
 
       const int nsrc = requestedBatch * maxBatch + minframe + b;
@@ -3192,7 +3199,11 @@ public:
     VECTOR* kdata = reinterpret_cast<VECTOR*>(ret->GetWritePtr());
 
     // validity
-    ret->SetProperty(GetAnalyzeValidPropName(), pMv[1]);
+      // Avisynth+ style
+    auto avsmap = env->getFramePropsRW(ret);
+    env->propSetInt(avsmap, GetAnalyzeValidPropName(), pMv[1], AVSPropAppendMode::PROPAPPENDMODE_REPLACE);
+    // old Neo frameprop style
+    // ret->SetProperty(GetAnalyzeValidPropName(), pMv[1]);
     pMv += 2;
 
     // mvデータ
@@ -3288,7 +3299,12 @@ public:
     pMv += pMv[0] / sizeof(int);
 
     // validity
-    bool isValid = (kmvframe->GetProperty(GetAnalyzeValidPropName())->GetInt() != 0);
+    // Avisynth+ style
+    int error;
+    const int propVal = env->propGetInt(env->getFramePropsRO(kmvframe), GetAnalyzeValidPropName(), 0, &error);
+    bool isValid = !error && (propVal != 0);
+    // Old Neo Fp style
+//    bool isValid = (kmvframe->GetProperty(GetAnalyzeValidPropName())->GetInt() != 0);
     pMv[1] = isValid;
     pMv += 2;
 
@@ -3379,7 +3395,12 @@ public:
     GetMVData(n, pMv, data_size, env);
 
     // validity
-    bool isValid = (kmvframe->GetProperty(GetAnalyzeValidPropName())->GetInt() != 0);
+    // Avisynth+ style
+    int error;
+    const int propVal = env->propGetInt(env->getFramePropsRO(kmvframe), GetAnalyzeValidPropName(), 0, &error);
+    bool isValid = !error && (propVal != 0);
+    // Old Neo Fp style
+    // bool isValid = (kmvframe->GetProperty(GetAnalyzeValidPropName())->GetInt() != 0);
     if (isValid != (pMv[1] != 0)) {
       env->ThrowError("Validity missmatch");
     }
@@ -3439,8 +3460,15 @@ public:
     const VECTOR* kdata2 = reinterpret_cast<const VECTOR*>(kmvframe2->GetReadPtr());
 
     // validity
-    bool data1valid = kmvframe1->GetProperty(GetAnalyzeValidPropName())->GetInt() != 0;
-    bool data2valid = kmvframe2->GetProperty(GetAnalyzeValidPropName())->GetInt() != 0;
+    // Avisynth+ style
+    int error;
+    const int propVal1 = env->propGetInt(env->getFramePropsRO(kmvframe1), GetAnalyzeValidPropName(), 0, &error);
+    bool data1valid = !error && (propVal1 != 0);
+    const int propVal2 = env->propGetInt(env->getFramePropsRO(kmvframe2), GetAnalyzeValidPropName(), 0, &error);
+    bool data2valid = !error && (propVal2 != 0);
+    // Old Neo Fp style
+    // bool data1valid = kmvframe1->GetProperty(GetAnalyzeValidPropName())->GetInt() != 0;
+    // bool data2valid = kmvframe2->GetProperty(GetAnalyzeValidPropName())->GetInt() != 0;
     if (data1valid != data2valid) {
       env->ThrowError("Validity missmatch");
     }
@@ -4704,7 +4732,11 @@ public:
     if (useFlag != USE_ONLY_AFTER) {
       for (int j = delta - 1; j >= 0; j--) {
         mvF[j] = rawClipF[j]->GetFrame(n, env);
-        bool isValid = mvF[j]->GetProperty(GetAnalyzeValidPropName())->GetInt() != 0;
+        // Avisynth+ style
+        int error;
+        const int propVal = env->propGetInt(env->getFramePropsRO(mvF[j]), GetAnalyzeValidPropName(), 0, &error);
+        bool isValid = !error && (propVal != 0);
+        // bool isValid = mvF[j]->GetProperty(GetAnalyzeValidPropName())->GetInt() != 0;
         mvClipF[j]->SetData(reinterpret_cast<const VECTOR*>(mvF[j]->GetReadPtr()), isValid);
         refF[j] = mvClipF[j]->GetRefFrame(isUsableF[j], super, n, env);
         SetSuperFrameTarget(superF[j].get(), refF[j], params->nPixelShift);
@@ -4718,7 +4750,11 @@ public:
     if (useFlag != USE_ONLY_BEFORE) {
       for (int j = 0; j < delta; j++) {
         mvB[j] = rawClipB[j]->GetFrame(n, env);
-        bool isValid = mvB[j]->GetProperty(GetAnalyzeValidPropName())->GetInt() != 0;
+        // Avisynth+ style
+        int error;
+        const int propVal = env->propGetInt(env->getFramePropsRO(mvB[j]), GetAnalyzeValidPropName(), 0, &error);
+        bool isValid = !error && (propVal != 0);
+        //bool isValid = mvB[j]->GetProperty(GetAnalyzeValidPropName())->GetInt() != 0;
         mvClipB[j]->SetData(reinterpret_cast<const VECTOR*>(mvB[j]->GetReadPtr()), isValid);
         refB[j] = mvClipB[j]->GetRefFrame(isUsableB[j], super, n, env);
         SetSuperFrameTarget(superB[j].get(), refB[j], params->nPixelShift);
@@ -5307,7 +5343,11 @@ public:
     SetSuperFrameTarget(superFrame[0].get(), ref0, params->nPixelShift);
 
     PVideoFrame mv = vectors->GetFrame(n, env);
-    bool isValid = mv->GetProperty(GetAnalyzeValidPropName())->GetInt() != 0;
+    // Avisynth+ style
+    int error;
+    const int propVal = env->propGetInt(env->getFramePropsRO(mv), GetAnalyzeValidPropName(), 0, &error);
+    bool isValid = !error && (propVal != 0);
+    //bool isValid = mv->GetProperty(GetAnalyzeValidPropName())->GetInt() != 0;
     mvClip->SetData(reinterpret_cast<const VECTOR*>(mv->GetReadPtr()), isValid);
     PVideoFrame	ref = mvClip->GetRefFrame(usable_flag, super, n, env);
     SetSuperFrameTarget(superFrame[1].get(), ref, params->nPixelShift);

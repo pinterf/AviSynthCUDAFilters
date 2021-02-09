@@ -77,8 +77,8 @@ public:
     , isRGB(vi.IsPlanarRGB() || vi.IsPlanarRGBA())
   {
     PNeoEnv env = env_;
-    systemFrameAlign = (int)env->GetProperty(AEP_FRAME_ALIGN);
-		systemPlaneAlign = (int)env->GetProperty(AEP_PLANE_ALIGN);
+    systemFrameAlign = (int)env->GetEnvProperty(AEP_FRAME_ALIGN);
+		systemPlaneAlign = (int)env->GetEnvProperty(AEP_PLANE_ALIGN);
   }
 
   PVideoFrame __stdcall GetFrame(int n, IScriptEnvironment* env_)

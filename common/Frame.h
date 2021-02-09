@@ -100,11 +100,19 @@ struct Frame {
     return reinterpret_cast<T*>(ptr);
   }
 
-  void SetProperty(const char* key, const AVSMapValue& value) { frame->SetProperty(key, value); }
-  const AVSMapValue* GetProperty(const char* key) const { return frame->GetProperty(key); }
-  PVideoFrame GetProperty(const char* key, const PVideoFrame& def) const { return frame->GetProperty(key, def); }
-  int GetProperty(const char* key, int def) const { return frame->GetProperty(key, def); }
-  double GetProperty(const char* key, double def) const { return frame->GetProperty(key, def); }
+  // Neo frameprop style
+// void SetProperty(const char* key, const AVSMapValue& value) { frame->SetProperty(key, value); }
+// const AVSMapValue* GetProperty(const char* key) const { return frame->GetProperty(key); }
+// PVideoFrame GetProperty(const char* key, const PVideoFrame& def) const { return frame->GetProperty(key, def); }
+// int GetProperty(const char* key, int def) const { return frame->GetProperty(key, def); }
+// double GetProperty(const char* key, double def) const { return frame->GetProperty(key, def); }
+  // Avisynth+ frameprop style
+  PVideoFrame GetPropertyFrame(PNeoEnv env, const char* key, const PVideoFrame& def) const { int error; auto val = env->propGetFrame(env->getFramePropsRO(frame), key, 0, &error); if (error) return def; else return val; }
+  void SetPropertyInt(PNeoEnv env, const char* key, const int value) { env->propSetInt(env->getFramePropsRW(frame), key, value, AVSPropAppendMode::PROPAPPENDMODE_REPLACE); }
+  void SetPropertyDouble(PNeoEnv env, const char* key, const double value) { env->propSetFloat(env->getFramePropsRW(frame), key, value, AVSPropAppendMode::PROPAPPENDMODE_REPLACE); }
+  void SetPropertyFrame(PNeoEnv env, const char* key, const PVideoFrame &value) { env->propSetFrame(env->getFramePropsRW(frame), key, value, AVSPropAppendMode::PROPAPPENDMODE_REPLACE); }
+  int GetPropertyInt(PNeoEnv env, const char* key, int def) const { int error; auto val = env->propGetInt(env->getFramePropsRO(frame), key, 0, &error); if (error) return def; else return (int)val; }
+  double GetPropertyDouble(PNeoEnv env, const char* key, double def) const { int error; auto val = env->propGetFloat(env->getFramePropsRO(frame), key, 0, &error); if (error) return def; else return val; }
   PDevice GetDevice() const { return frame->GetDevice(); }
   int CheckMemory() const { return frame->CheckMemory(); }
 

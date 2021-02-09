@@ -7,7 +7,7 @@
 DeviceLocalBase::DeviceLocalBase(const void* init_data, size_t length, PNeoEnv env)
   : length(length)
 {
-  numDevices = (int)env->GetProperty(AEP_NUM_DEVICES);
+  numDevices = (int)env->GetEnvProperty(AEP_NUM_DEVICES);
   dataPtrs = new std::atomic<void*>[numDevices]();
 #if 1
 	if (dataPtrs == nullptr) {
