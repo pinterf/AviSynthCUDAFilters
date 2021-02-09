@@ -3,7 +3,8 @@
 	url = https://github.com/nekopanda/googletest.git
 [submodule "nnedi3"]
 	path = nnedi3
-	url = https://github.com/nekopanda/NNEDI3.git
+	url = https://github.com/pinterf/NNEDI3.git
+	branch = cuda
 [submodule "masktools"]
 	path = masktools
 	url = https://github.com/pinterf/masktools.git
