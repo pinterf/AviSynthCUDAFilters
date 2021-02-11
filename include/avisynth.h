@@ -23,7 +23,6 @@
 //           Interface Version to 8 (classic 2.6 = 6)
 // 20200527  Add IScriptEnvironment_Avs25, used internally
 // 20200607  AVS frame property enums to match existing Avisynth enum style
-// 20210125  Add missing NewVideoFrameP to PNeoEnv, remove INTEL_INTRINSICS around PNeoEnv GetCPUFlags()
 
 // http://www.avisynth.org
 
@@ -1679,6 +1678,7 @@ public:
 // share the same ScriptEnvironment instance. The function with the same signature
 // is exactly identical and there is no limitation to switch interfaces.
 // You can use any interface you like.
+// Note to plugin authors : The interface is not stable, see comments in IScriptEnvironment2
 class INeoEnv {
 public:
   virtual ~INeoEnv() {}
@@ -1762,15 +1762,12 @@ public:
   virtual void __stdcall PopContextGlobal() = 0;
 
   // Allocate new video frame
-  // Align parameter is no longer supported
+  // in PNeoEnv: align parameter is no longer supported
   virtual PVideoFrame __stdcall NewVideoFrame(const VideoInfo& vi) = 0; // current device is used
   virtual PVideoFrame __stdcall NewVideoFrame(const VideoInfo& vi, const PDevice& device) = 0;
   // as above but with property sources
   virtual PVideoFrame __stdcall NewVideoFrame(const VideoInfo& vi, PVideoFrame *propSrc) = 0; // current device is used + frame property source
   virtual PVideoFrame __stdcall NewVideoFrame(const VideoInfo& vi, const PDevice& device, PVideoFrame* propSrc) = 0; // current device is used + frame property source
-
-  // NewVideoFrame with frame property source.
-  virtual PVideoFrame __stdcall NewVideoFrameP(const VideoInfo& vi, PVideoFrame* propSrc, int align = FRAME_ALIGN) = 0;
 
   // Frame related operations
   virtual bool __stdcall MakeWritable(PVideoFrame* pvf) = 0;

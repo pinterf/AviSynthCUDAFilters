@@ -72,7 +72,7 @@ public:
   {
     PNeoEnv env = env_;
     PVideoFrame src = child->GetFrame(n, env);
-    PVideoFrame dst = env->NewVideoFrameP(vi, &src);
+    PVideoFrame dst = env->NewVideoFrame(vi, &src);
     // Old Neo
     // PVideoFrame dst = env->NewVideoFrame(vi);
     // env->CopyFrameProps(src, dst);
