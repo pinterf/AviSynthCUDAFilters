@@ -1,108 +1,108 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <Filter Include="ソース ファイル">
+    <Filter Include="Source Files">
       <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
       <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
     </Filter>
-    <Filter Include="ヘッダー ファイル">
+    <Filter Include="Source Files\filters">
+      <UniqueIdentifier>{927c6064-298f-407a-94e9-0ec13573f764}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files">
       <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
       <Extensions>h;hh;hpp;hxx;hm;inl;inc;xsd</Extensions>
     </Filter>
-    <Filter Include="リソース ファイル">
+    <Filter Include="Header Files\filters">
+      <UniqueIdentifier>{a62e137c-b16d-4dae-945a-8e3160480d22}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resources">
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
-    </Filter>
-    <Filter Include="ソース ファイル\filters">
-      <UniqueIdentifier>{927c6064-298f-407a-94e9-0ec13573f764}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="ヘッダー ファイル\filters">
-      <UniqueIdentifier>{a62e137c-b16d-4dae-945a-8e3160480d22}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AvsCUDA.h">
-      <Filter>ヘッダー ファイル</Filter>
+      <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="filters\focus.h">
-      <Filter>ヘッダー ファイル\filters</Filter>
+      <Filter>Header Files\filters</Filter>
     </ClInclude>
     <ClInclude Include="filters\merge.h">
-      <Filter>ヘッダー ファイル\filters</Filter>
+      <Filter>Header Files\filters</Filter>
     </ClInclude>
     <ClInclude Include="filters\merge_avx2.h">
-      <Filter>ヘッダー ファイル\filters</Filter>
+      <Filter>Header Files\filters</Filter>
     </ClInclude>
     <ClInclude Include="..\common\Copy.h">
-      <Filter>ヘッダー ファイル</Filter>
+      <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="filters\convert_avx.h">
-      <Filter>ヘッダー ファイル\filters</Filter>
+      <Filter>Header Files\filters</Filter>
     </ClInclude>
     <ClInclude Include="filters\convert_avx2.h">
-      <Filter>ヘッダー ファイル\filters</Filter>
+      <Filter>Header Files\filters</Filter>
     </ClInclude>
     <ClInclude Include="filters\resample.h">
-      <Filter>ヘッダー ファイル\filters</Filter>
+      <Filter>Header Files\filters</Filter>
     </ClInclude>
     <ClInclude Include="filters\resample_avx2.h">
-      <Filter>ヘッダー ファイル\filters</Filter>
+      <Filter>Header Files\filters</Filter>
     </ClInclude>
     <ClInclude Include="filters\resample_functions.h">
-      <Filter>ヘッダー ファイル\filters</Filter>
+      <Filter>Header Files\filters</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="AvsCUDA.cpp">
-      <Filter>ソース ファイル</Filter>
+      <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="filters\focus.cpp">
-      <Filter>ソース ファイル\filters</Filter>
+      <Filter>Source Files\filters</Filter>
     </ClCompile>
     <ClCompile Include="filters\SupportFilters.cpp">
-      <Filter>ソース ファイル\filters</Filter>
+      <Filter>Source Files\filters</Filter>
     </ClCompile>
     <ClCompile Include="filters\focus_avx2.cpp">
-      <Filter>ソース ファイル\filters</Filter>
+      <Filter>Source Files\filters</Filter>
     </ClCompile>
     <ClCompile Include="filters\merge_avx2.cpp">
-      <Filter>ソース ファイル\filters</Filter>
+      <Filter>Source Files\filters</Filter>
     </ClCompile>
     <ClCompile Include="filters\convert_avx.cpp">
-      <Filter>ソース ファイル\filters</Filter>
+      <Filter>Source Files\filters</Filter>
     </ClCompile>
     <ClCompile Include="filters\convert_avx2.cpp">
-      <Filter>ソース ファイル\filters</Filter>
+      <Filter>Source Files\filters</Filter>
     </ClCompile>
     <ClCompile Include="filters\resample_avx2.cpp">
-      <Filter>ソース ファイル\filters</Filter>
+      <Filter>Source Files\filters</Filter>
     </ClCompile>
     <ClCompile Include="filters\resample_functions.cpp">
-      <Filter>ソース ファイル\filters</Filter>
+      <Filter>Source Files\filters</Filter>
     </ClCompile>
     <ClCompile Include="filters\turn.cpp">
-      <Filter>ソース ファイル\filters</Filter>
+      <Filter>Source Files\filters</Filter>
     </ClCompile>
     <ClCompile Include="..\common\DeviceLocalData.cpp">
-      <Filter>ソース ファイル</Filter>
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="filters\ConditionalFunctions.cu">
-      <Filter>ソース ファイル\filters</Filter>
+      <Filter>Source Files\filters</Filter>
     </CudaCompile>
     <CudaCompile Include="filters\Filters.cu">
-      <Filter>ソース ファイル\filters</Filter>
+      <Filter>Source Files\filters</Filter>
     </CudaCompile>
     <CudaCompile Include="filters\merge.cu" />
     <CudaCompile Include="..\common\Copy.cu">
-      <Filter>ソース ファイル</Filter>
+      <Filter>Source Files</Filter>
     </CudaCompile>
     <CudaCompile Include="filters\Convert.cu">
-      <Filter>ソース ファイル\filters</Filter>
+      <Filter>Source Files\filters</Filter>
     </CudaCompile>
     <CudaCompile Include="filters\resample.cu">
-      <Filter>ソース ファイル\filters</Filter>
+      <Filter>Source Files\filters</Filter>
     </CudaCompile>
   </ItemGroup>
 </Project>
