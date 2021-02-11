@@ -190,13 +190,45 @@ Submodule path 'nnedi3': checked out '820dec444baa383c0c7b86ee46566f0c61d98127'
     (Obtained from the Output folder when building Avisynth+)
 
 5.) (to-do)
-    - update google tests 
+    - update google tests
     - masktools: make a smarter way of reusing 'common' folder in submodules,
       and still allowing them to build separately.
       cuda and main fork differs inconveniently, even the placement of sln file
     - nnedi3 cannot be built separately, only as an AvisynthCUDAFilters submodule
     - Translate Japanese to English + doc to English
-    - check GRunT, it has a smaller subset of functions
+    - check GRunT, it's in the KFM package; it has a smaller subset of functions
     - nnedi3 to work at 10+ bits
-    - Understand thing, Nekopanda has created
+    - Understand things, Nekopanda has created
+
+6.) Quickies for myself:
+- When a submodule is changed, in AvisynthCUDAFilters command prompt
+    git submodule update --init --recursive --remote
+- On avisynth.h change:
+  Rebuild avisynth (with cuda option), we'll need
+    Copy AviSynthPlus\Output\c_api\avisynth.lib to lib\x64\ and lib\x86\
+    Avisynth+\Output\Avisynth.dll
+  Update masktools 'cuda' branch (separate project!) in masktools/include/avisynth.h, push to git
+  Refresh AvisynthCUDAFilters submodules: git submodule update --init --recursive --remote
+    (that will bringa back masktools changes)
+  Update AvisynthCUDAFilters/include/avisynth.h
+- Build:
+  build solution, for x64: check AviSynthCUDAFilters\x64\Release\
+    for KFM package:
+      KFM.dll
+      AvsCUDA.dll
+      GRunT.dll
+      KFMDeint.avsi
+    for KTGMC package:
+      KTGMC.dll
+      KNNEDI3.dll (knnedi3, knnedi3_rpow2, names are different)
+      KTGMC.avsi
+      KSMDegrain.avsi
+    Other
+      KMaskTools.dll (kmt_lut and kmt_lutxy, can safely live beside masktools2.dll)
+    Remarks:
+      KUtil.dll (generic plugin; contains one function: IsProcess(string "processname") e.g. one can check is script is run from avspmod) 
+      GRunT.dll (much less functions than original one, using Global variable frame, and relies on actual PNeoEnv)
+      KDebugTool.dll - for debug: Time check for profiling and Image comparer)
+  Add matching Avisynth+
+    Avisynth+/Output/Avisynth.dll
 

@@ -1,0 +1,486 @@
+This documentation in the English translation of https://github.com/nekopanda/AviSynthPlus/wiki
+
+1. Avisynth is CUDA compatible!
+
+  If you use a specially written CUDA compatible filter, you can process it with CUDA. Enclose the CUDA filter in OnCPU and OnCUDA.
+  Sample script (KNNEDI3 requires KNNEDI.dll included in KTGMC)
+
+    srcfile = "..."
+    LWLibavVideoSource (srcfile)
+    OnCPU(2)
+    KNNEDI3(field = -2)
+    OnCUDA(2)
+
+  OnCPU and OnCUDA transfer data between GPU and CPU.
+  OnCPU means "running in front of OnCPU with CPU". It is not "after" but "before" from OnCPU. The same is true for OnCUDA.
+
+  Be aware that forgetting the last OnCUDA can be terrible.
+
+  For CUDA filter implementation see AviSynthCUDAFilters
+
+2 Functions added in Neo for CUDA
+
+2.1 OnDevice (OnCPU/OnCUDA)
+
+  OnCPU/OnCUDA (collectively called OnDevice) specifications
+
+  If all are valid, the chain will be as follows.
+
+  Upstream → Upstream cache → Thread → Transfer → Downstream cache → Downstream
+
+  → is the flow of frame data (reverse of GetFrame call direction)
+
+  Number of prefetch frames
+
+       0: Synchronous call without all cache
+       1: Synchronous call, but only transfer is read ahead and executed asynchronously. Downstream cache is enabled.
+       2 or more: Pre-read upstream processing using threads. Both upstream and downstream caches are valid.
+
+  The number of upstream threads is fixed at 1 thread when prefetch = 2 or more, and the number of prefetches is fixed at 2. 
+  The downstream look-ahead number is set to the specified prefetch sheet.
+
+2.1.1 OnCPU
+
+OnCPU(clip, int "num_prefetch")
+
+The CPU processes the specified clip.
+
+    clip
+        This clip is processed by the CPU. In other words, the processing before this is processed by the CPU.
+    int num_prefetch = 0
+        Here you specify the number of frames to prefetch. About 2 will give you enough performance. Unlike Prefetch, it has only one thread because it is a prefetch for parallelizing processing on the GPU and CPU. If 0 is specified, it will be a synchronous call without using threads.
+
+2.1.2 OnCUDA
+
+OnCUDA(clip, int "num_prefetch", int "device_index")
+
+Processes the specified clip on the GPU.
+
+    clip
+        This clip is processed by CUDA. In other words, the processing before this is processed by CUDA. A filter that does not support CUDA processing will result in an error. Currently, internal filters are rarely supported, so you can only use external filters that are specially made.
+    int num_prefetch = 0
+        Same as OnCPU prefetch.
+    int device_index = 0
+        Specifies the GPU to run. If you have only one GPU, you can only use 0. If you have two GPUs, you can specify 0 or 1. There is no limit on the number.
+
+
+2.2 SetDeviceOpt
+
+SetDeviceOpt(int)
+
+Option setting
+
+    int
+        The following values ​​are available:
+            DEV_CUDA_PINNED_HOST: By allocating frame data on the CPU side with pinned memory, data transfer between GPU and CPU becomes faster. However, pinned memory occupies physical memory and can become unstable if your system runs out of memory.
+
+2.3 SetMemoryMax
+
+SetMemoryMax (int, int "type", int "index")
+
+It's an original function, but with additional arguments for devices such as GPUs. Memory usage is managed individually for devices such as GPUs.
+
+    int
+        Device (including CPU) memory limit (MB)
+    int type = DEV_TYPE_CPU
+        Device type. The following values ​​are available:
+            DEV_TYPE_CPU: CPU
+            DEV_TYPE_CUDA: GPU
+    int index = 0
+        Device number. Same as onCUDA device_index. Only 0 for DEV_TYPE_CPU.
+
+3. MT improvement
+
+In the original Plus, you could only use one Prefetch, but in Neo you can use as many as you like.
+Also, an argument has been added to specify the number of frames to prefetch.
+
+Prefetch (clip, int "threads", int "frames")
+
+    clip
+        Clips to parallelize
+    int threads = (number of logical cores in the system) +1
+        Number of threads. If it is 0, it will pass through without doing anything.
+    int frames = threads * 2
+        The number of frames to prefetch. If it is 0, it will pass through without doing anything.
+
+Example: Pipeline parallelization
+
+  Filtering A
+  Prefetch(1,4)
+  Filtering B
+  Prefetch(1,4)
+  Filtering C
+  Prefetch(1,4)
+
+Prefetch (1,4) makes one thread stand and read four frames ahead.
+In the above example, the filtering processes A, B, and C are executed in parallel in a pipeline.
+Since the number of threads of each Prefetch is arbitrary, for example, filter processing B is heavy, 
+so if you want to increase the number of parallels by that amount, you can increase the number of threads as follows.
+
+  Filtering A
+  Prefetch(1,4)
+  Filtering B
+  Prefetch(4)
+  Filtering C
+  Prefetch(1,4)
+
+4. Filter graph dump function
+
+This function outputs the flow of filtering as a graph. Put SetGraphAnalysis (true) at the beginning of the avs script and call DumpFilterGraph () on the output clip to output the filter graph.
+
+Example
+
+  SetGraphAnalysis(true)
+  srcfile = "..."
+  LWLibavVideoSource(srcfile)
+  QTGMC()
+  DumpFilterGraph("graph.txt", mode = 2)
+
+Since it is output in dot format, it can be converted to an image with Graphviz as shown below.
+
+dot -Tsvg graph.txt -o graph.svg
+
+4.1 SetGraphAnalysis
+
+SetGraphAnalysis (bool)
+
+    bool
+        Enables (True) or disables (False) the insertion of graph nodes into the instantiated filter. To output a filter graph, the filter must have a graph node inserted. Inserting a graph node increases the number of internal function calls, which can result in a slight performance penalty. (In most cases, I don't think there is any observable performance degradation.)
+
+4.2 SetGraphAnalysis
+
+DumpFilterGraph (clip, string "outfile", int "mode", int "nframes", bool "repeat")
+
+Outputs a filter graph.
+
+    clip
+        Clip to output the filter graph
+    string outfile = ""
+        Output file path
+    int mode = 0 *
+    int nframes = -1
+        Outputs a filter graph when processing a specified frame. The cache size and memory usage of each filter at that time are output together. This is useful when you want to know the memory usage of each filter. If it is -1, it will be output when DumpFilterGraph is called (before the frame is processed).
+    bool repeat = false
+        Only valid if nframes> 0. Outputs a repeating filter graph at nframes intervals.
+
+5. Function object
+
+5.1 Function object basics
+
+  a = function(int x, int y) {
+      return x + y
+  }
+  MessageClip(String(a)) #Function
+  b = a
+  MessageClip(String(b)) #Function
+  MessageClip(String(a == b)) # true
+
+5.1.1 Take an argument
+
+  function MyFunc(func f) {
+      return f(2, 3)
+  }
+  a = MyFunc(function(x, y) {
+      return x + y
+  })
+  MessageClip(String(a)) # 5
+
+5.1.2 Or return as a return value
+
+  function MyFunc() {
+      return function(x, y) {
+          return x + y
+      }
+  }
+  a = MyFunc()(2, 3)
+  MessageClip(String(a)) # 5
+
+5.1.3 Capture the variable at that point with'[]' before the formal argument
+
+  function MyFunc() {
+      x = 2
+      y = 3
+      return function[x, y]() {
+          return x + y
+      }
+  }
+  a = MyFunc()()
+  MessageClip(String(a)) # 5
+
+5.2 Specification details
+
+  Function objects are functions defined with the new syntax.
+
+  function [] () {...}
+
+  It looks like an unnamed function compared to the usual function definitions so far. [] Does not have to be optional.
+
+  Functions defined in the normal function format are not function objects (for compatibility).
+
+    function MyFunc() {return 123}
+    a = MyFunc
+    MessageClip(String(a)) # 123 (Not Function)
+
+  Similarly, built-in functions and plug-in functions are not function objects.
+
+    a = Invert # Error: I don't know what'Invert' means.
+
+  Functions that are not function objects can be made into function objects by using the func function.
+
+    a = func(Invert)
+    Version().a() # Invert a clip
+
+  A new 'func' has been added to the value type.
+
+    function MyFunc(func x, func y, int z) {
+        return x () + y () + z
+    }
+    a = MyFunc(function(){1}, function(){2}, 3)
+    MessageClip(String(a)) # 6 (= 1 + 2 + 3)
+
+  The IsFunction function that determines the function object has been added.
+
+    a = function() {}
+    MessageClip(String(IsFunction(a))) # true
+
+5.3 Compare with GRunT
+
+  Let's compare Neo with GRunT, a plugin that makes ScriptClip easier to write.
+
+  The following code on the GRunT introduction page
+
+    function bracket_luma(clip c, float th1, float th2) {
+        Assert (0 <= th1 && th1 <th2 && th2 <= 255, "Invalid thresholds!")
+        ScriptClip (c, "" "
+           avl = AverageLuma ()
+           avl <= th1? Last.BlankClip (): avl> = th2? last.BlankClip (color = color_white): last
+        "" ", args =" th1, th2 ", local = true)
+    }
+
+  It is a sample to appeal the goodness of GRunT, but with Neo it can be written as follows.
+
+    function bracket_luma(clip c, float th1, float th2) {
+        Assert (0 <= th1 && th1 <th2 && th2 <= 255, "Invalid thresholds!")
+        ScriptClip(c, function [th1, th2] () {
+           avl = AverageLuma()
+           avl <= th1? Last.BlankClip() : avl> = th2? last.BlankClip(color = color_white) : last
+        })
+    }
+
+  There are the following differences compared to GRunT.
+
+      There is no need to pass the processing content as a character string
+      Variables to be used can be written in a special syntax, so the amount of description is reduced.
+
+5.4 Supports function input of built-in functions
+
+  A version that can pass the function has been added to the function that passed the processing content as a script string.
+
+5.4.1 ScriptClip
+
+  ScriptClip(clip clip, func filter [, bool show, bool after_frame])
+
+  Example
+
+    Version()
+    ScriptClip (function [] (clip c) {
+        c.Subtitle(String(current_frame))
+    })
+
+5.4.2 ConditionalFilter
+
+  ConditionalFilter(clip testclip, clip source1, clip source2, func condition [, bool show])
+
+  Example
+
+  a = Version()
+  b = a.Invert()
+  ConditionalFilter(a, a, b, function [] (clip c) {
+      current_frame<30 # if true return a else b
+  })
+
+5.4.3 ConditionalSelect
+
+  ConditionalSelect(clip testclip, func get_index, clip source0 [, clip source1 ...] [, bool show])
+
+  Example
+
+    Version ()
+    ConditionalSelect(function [] (clip c) {
+        current_frame / 100
+    }, subtitle("0"), subtitle ("1"), subtitle ("2"))
+
+5.4.4 Write File system
+
+  WriteFile(clip clip, string filename, func expression1 [, func expression2 [, ...]] [, bool append, bool flush])
+
+  WriteFileIf(clip clip, string filename, func expression1 [, func expression2 [, ...]] [, bool append, bool flush])
+
+  WriteFileStart (clip clip, string filename, func expression1 [, func expression2 [, ...]] [, bool append])
+
+  WriteFileEnd (clip clip, string filename, func expression1 [, func expression2 [, ...]] [, bool append])
+
+  Example
+
+    Version().ConvertToY()
+    WriteFile("out.txt", function() {
+        string(current_frame) + ":" + string(YPlaneMedian())
+    })
+
+6. Support for escaped strings
+
+  The string e"..." with the e-prefix enables backslash escaping.
+
+  Example
+
+  Version().ConvertToY()
+  WriteFileStart("out.txt", function() {
+      e"foo\tbar\nhoge\thoge"
+  })
+
+7. Device check (for filter developers)
+
+* For filter developers
+
+Device check is a process that checks whether the device combination (CPU/CUDA) with the child clip is correct when creating a clip instance, and if it is incorrect, an error occurs.
+
+7.1 Device check specifications of Avisynth main unit.
+
+Avisynth itself calls SetCacheHints of the clip to get the devices supported by the clip and checks if the device combination is correct.
+The filter can check the device of the child clip independently, but Avisynth itself has the following two purposes to check the device.
+
+- Allows device checking even with existing filters that do not support devices
+  For example, if there is a filter that does not support the device after the filter that returns only CUDA frames, I want to make an error.
+- Simplified device check process for filters
+  If all the input clips and the frame returned by the filter are the same device, if you return the device with CACHE_GET_DEV_TYPE, Avisynth itself will perform the necessary device check.
+
+However, if there are multiple child clips and the devices assumed for each are different, the filter must implement its own device check.
+
+Device check works with the following specifications.
+
+First, for the filter, the devices (there may be more than one) acquired in the following priority order are defined as "clip device" and "device required for child clip".
+
+Clip device
+
+    - If a device is returned with CACHE_GET_DEV_TYPE, that device
+    - DEV_TYPE_CPU
+
+The device you want for the child clip
+
+    - If a device is returned with CACHE_GET_CHILD_DEV_TYPE, that device
+    - If a device is returned with CACHE_GET_DEV_TYPE, that device
+    - DEV_TYPE_CPU
+
+The device check pseudo code is shown below. This pseudo code is checking the device for clip A.
+
+  devs = (device required for child clip of A)
+  foreach (B in (clip given as argument of A)) {
+      child_devs = (B clip device)
+      if ((devs & child_devs) == 0) {
+          throw // error
+      }
+  }
+
+If you want to disable the device check of Avisynth itself, such as when the filter implements the device check independently, you can return DEV_TYPE_ANY with CACHE_GET_CHILD_DEV_TYPE.
+Make sure the device is checked correctly
+
+If the device check is insufficient, it will fail due to a memory access violation at runtime.
+A complete device check cannot be performed only by the device check by Avisynth itself, so it is necessary to implement it correctly on the filter side as well.
+
+7.2 Get Clip Device
+
+The clip device defined above is obtained with the following code.
+
+int GetDeviceTypes(const PClip& clip)
+{
+  int devtypes = (clip-> GetVersion ()> = 5)? clip-> SetCacheHints(CACHE_GET_DEV_TYPE, 0): 0;
+  if (devtypes == 0) {
+    return DEV_TYPE_CPU;
+  }
+  return devtypes;
+}
+
+A clip device is a device for the frame returned by the clip.
+The actual device is known only at runtime, so here it is a device that may be returned.
+For example, OnCPU and OnCUDA return frames from any device upon request, so the clip device is DEV_TYPE_ANY.
+
+Even if the filter does its own device check, you should get the clip device with the above code.
+Filters for multiple devices should propagate devices in child clips
+
+Just because it supports both CPU and CUDA, you should not implement it as follows.
+
+  int __stdcall SetCacheHints (int cachehints, int frame_range) {
+    if (cachehints == CACHE_GET_DEV_TYPE)
+      return DEV_TYPE_CPU | DEV_TYPE_CUDA;
+    return 0;
+  }
+
+In this way, for example, if the child clip is CUDA and the subsequent clip is CPU, this filter is expected to receive CUDA frames and return CPU frames.
+However, in reality, if you receive a CUDA frame, you can only return a CUDA frame (really, if you can receive a CUDA frame and return a CPU frame, the above implementation is fine).
+Therefore, it should be correctly as follows.
+
+  int __stdcall SetCacheHints (int cachehints, int frame_range) {
+    if (cachehints == CACHE_GET_DEV_TYPE) {
+      return GetDeviceTypes (child) & (DEV_TYPE_CPU | DEV_TYPE_CUDA);
+    }
+    return 0;
+  }
+
+Furthermore, if there are multiple child clips, the device common to all child clips should be the child clip device.
+If the child clips do not have a common device, the child clip's devices do not match and should be an error.
+These processes must be implemented on the filter side.
+
+8. CUDA compatible Avisynth filters (some by external AvsCUDA.dll)
+
+A filter that can be used inside OnCPU() and OnCUDA().
+This is the case when AvsCUDA.dll included in KFM is added.
+
+Internal Filter                               |Description
+----------------------------------------------+--------------------------------------
+ConvertBits                                    Only when dither != 1 & fulls == false
+Invert
+MergeLuma / MergeChroma
+Merge
+Crop                                           Align() is required later*
+CropBottom                                     Align() is required later*
+BicubicResize / BilinearResize /
+BlackmanResize / GaussResize / 
+LanczosResize / Lanczos4Resize / 
+PointResize / SincResize / 
+Spline16Resize / Spline36Resize / 
+Spline64Resize
+
+AlignedSplice / UnalignedSplice                Frame no touch
+AssumeFPS/AssumeScaledFPS/ChangeFPS/ConvertFPS Frame no touch
+DeleteFrame                                    frame no touch
+DuplicateFrame                                 frame no touch
+FreezeFrame                                    frame no touch
+Interleave                                     frame no touch
+Loop                                           frame no touch
+Reverse                                        frame no touch
+SelectEven / SelectOdd                         Frame no touch
+SelectEvery                                    Frame no touch
+SelectRangeEvery                               Frame no touch
+Trim                                           frame no touch
+AssumeFrameBased / AssumeFieldBased            Frame no touch
+AssumeBFF / AssumeTFF                          Frame no touch
+ComplementParity
+DoubleWeave
+Pulldown
+SeparateFields                                 Align () is required later*
+Weave
+ConditionalFilter / FrameEvaluate /
+ScriptClip / ConditionalSelect
+ConditionalReader
+WriteFile / WriteFileIf / 
+WriteFileStart / WriteFileEnd                  No frame touch
+BlankClip / Blackness                          Frame no touch
+ColorBars / ColorBarsHD
+MessageClip
+Version
+
+* For a filter that requires Align() later, it is necessary to insert Align() after executing the filter and before passing it to another filter.
+If you want to connect a filter that requires Align() later and a filter that does not touch the frame, you can connect it as it is.
+
+9. Sample Avisynth Filter (needs update for Avisynth+ 3.7 level)
+https://github.com/nekopanda/AviSynthPlusCUDASample

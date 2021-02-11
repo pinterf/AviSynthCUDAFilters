@@ -1,0 +1,893 @@
+AviSynthCUDAFilters
+===================
+Document history:
+- (20210210)   initial text, with English translation of Nekopanda's wiki
+
+CUDA implementation filter plugin for AviSynth+ (originally Avisynth Neo). The following projects are available.
+
+     KTGMC (CUDA version of QTGMC)
+     KNNEDI3 (CUDA version of NNEDI3)
+     KFM (proprietary filter)
+     AvsCUDA (CUDA compatible version of AviSynth internal filter)
+     GRunT (Neo compatible version GrunT)
+
+How to use
+
+  Requires AviSynth+ (after v3.7, specially built with ENABLE_CUDA option) (originally Avisynth Neo).
+  Refer to the KTGMC document and KFM document for how to use the filter. Most functions can be used around deinterlacing by using KFMDeint.
+  
+License
+
+     KTGMC: GPL
+     KNNEDI3: GPL
+     KFM: MIT
+     AvsCUDA: GPL
+     GRunT: GPL 
+
+History
+-------
+In 2018 Nekopanda extended Avisynth+ in order to have CUDA support.
+CUDA support required a lot of background changes in Avisynth+.
+Multithreading concept of original Avisynth+ was hugely extended (multiple Prefetch with extra parameters).
+Some very old bugs was fixed by these changes as well (ScriptClip errors and deadlocks).
+Theere were cacheing improvements and new language elements as well.
+Switching between CPU and CUDA frame-modes became available. (OnCUDA, OnCPU)
+Nekopanda's CUDA-aware plugins were using a new set of functions in an extended Avisynth+ CPP interface (PNeoEnv).
+
+Meanwhile classic Avisynth+ was parallelly developed in other areas and the above mentioned fixes and extensions 
+were backported to the 'classic' Avisynth+ in 2020. As a side-effect, the Device-concept - thus possible CUDA support - was 
+adopted as well, though the interface is not compatible between Neo and Avisynth+ and there are bigger differences
+(for example frame properties, runtime functions default scope of variables) as well.
+
+In 2021 I (pinterf) checked and fixed the missing chains in classic Avisynth+ source to play with CUDA extension just for curiousity.
+
+AviSynthCUDAFilters needed an update as well to match the actual Avisynth+ interfaces and functions.
+
+There are two external submodules (KNNEDI3 and KMaskTools2) besides the core filters.
+
+One part of the filters are implementing usual Avisynth filters but as CUDA input-output.
+Others are created to give a subset of the original mvtools2 (MSuper, MAnalyze), masktools (mt_lut, mt_lutxy) and NNEDI3.
+With limited parameters - mostly as they were required in the CUDA version of QTGMC: KTGMC.
+And a large number of other filters helping deinterlacing, field match and other tasks.
+
+There is an external filter mentioned (AMTSource of Amatsukaze https://github.com/nekopanda/Amatsukaze) which is not the scope of this description.
+
+Original
+https://github.com/nekopanda/AviSynthCUDAFilters
+Wiki (in Japanese)
+https://github.com/nekopanda/AviSynthCUDAFilters/wiki
+
+
+New project elements:
+Avisynth+, after v3.7 https://github.com/AviSynth/AviSynthPlus
+
+Filters:
+https://github.com/pinterf/AviSynthCUDAFilters
+https://github.com/pinterf/masktools   (cuda branch)
+https://github.com/pinterf/NNEDI3   (cuda branch)
+
+
+This document is more or less the English version of this wiki (Google translate)
+
+1. KFM
+  KFM (KFM.dll) is a group of filters implemented for Amatsukaze. See below for documentation for each filter. 
+
+1.1 KFMDeint
+  KFMDeint (KFMDeint.avsi) is a deinterlacing filter that uses KFM and KTGMC.
+  Internally, it calls reverse telecine, QTGMC interpolation, frame replacement around scene change (Decomb UCF), KTGMC, and KSM Degrain. 
+  Usage:
+
+  KFMDeint (clip src, int "mode", int "pass", string "preset", float "thswitch", bool "ucf", bool "nr", bool "svp", string "filepath", bool "cuda", int "dev", int "threads", bool "show")
+
+    clip src
+        Source clip (interlaced)
+    int mode = 0
+        processing mode. The following values ​​are available
+            0: VFR
+            1: 60fps by QTGMC
+            2: 24fps by KFM
+            3: 24/30/60fps 3 clip mode
+            4: VFR (60fps output)
+        mode = 3 returns 3 clips of 24p, 30p, 60p. (To be precise, if you pass fps as an argument, it returns a function that returns the corresponding clip.)
+    int pass = 0
+        Path when using multipath. The following values ​​are available.
+            0: No multipath is used. Process in real time. mode = 0,4 is the same process (60fps clip is returned).
+            1: Reverse telecine pattern analysis (available in mode = 0,2,4)
+            2: Timecode generation (requires pass = 1 result. Can be used in mode = 0,4)
+            3: Frame output (pass = 1 result is required for mode = 2. mode = 0,4 requires pass = 2 result)
+        For pass = 1,2, when the frame is acquired to the end of the output clip of KFMDeint, the analysis result is written to the file. That file will be needed in the next path.
+        Advantages of multipath
+            Accuracy increases slightly
+            Reverse telecine pattern is fixed as much as possible
+            VFR time code can be output
+    string preset = (Height(src) >= 720)? "Faster" : "Slower"
+        Q(K)TGMC preset
+    float thswitch = 0.5
+        Switching threshold between 24fps / 30fps and 60fps
+    bool ucf = false
+        Whether to enable Decombe UCF
+    bool nr = false
+        Whether to enable noise reduction by KSM Degrain
+    bool svp = false
+        Whether to enable frame interpolation by SVP
+        Requires Avisynth and Vaporsynth plugins
+        Only mode = 2 or 4 supports SVP. When mode = 2, the completed 60fps clip is returned
+    string filepath = "kfmdeint"
+        Intermediate file output path when using multipath. The intermediate file name is as follows (the kfmdeint part is replaced with the name specified in filepath)
+            Telecine pattern analysis result (pass = 1 output): kfmdeint.result.dat
+            Frame duration (pass = 2 output): kfmdeint.duration.txt
+            Timecode (pass = 2 output): kfmdeint.timecode.txt
+    bool cuda = false
+        Whether to process with CUDA
+    int dev = 0
+        GPU number when processing with CUDA
+    int threads = 6
+        Number of threads when processing by CPU
+    bool show = false
+        Display information in the upper left
+
+Example of VFR conversion by multipath
+
+First, execute pass = 1 (execute the following clip until the last frame)
+
+  LWLibavVideoSource("source path").OnCPU(2)
+  KFMDeint(mode = 0, pass = 1, cuda = true)
+
+This will output kfmdeint.result.dat. Then execute pass = 2 (execute the following clip to the last frame)
+
+  LWLibavVideoSource("source path").OnCPU(2)
+  KFMDeint(mode = 0, pass = 2, cuda = true)
+
+This will output kfmdeint.duration.txt and kfmdeint.timecode.txt. Then encode with pass = 3
+
+  LWLibavVideoSource("source path").OnCPU(2)
+  KFMDeint(mode = 0, pass = 3, cuda = true)
+
+If you reflect kfmdeint.timecode.txt in the encoding result, VFR conversion is completed.
+Example of mode = 3
+
+  LWLibavVideoSource("source path").OnCPU(2)
+  c = KFMDeint(mode = 3, cuda = true)
+  c(24) # 24fps clip
+  c(30) # 30fps clip
+  c(60) # 60fps clip
+
+
+1.2 QTGMC interpolation
+  QTGMC Supplemental Filter
+
+  KFM (KFM.dll) QTGMC interpolation filter
+
+1.2.1 KAnalyzeStatic
+
+  KAnalyzeStatic(clip, float "thcombe", float "thdiff")
+
+  An analysis filter for merging static parts into the QTGMC output. Algorithmically, pixels that have been combed and that do not move are merged.
+
+    CUDA support: Yes
+    clip
+        Pass the source clip from which QTGMC was based
+    int thcombe = 30
+        Combing judgment threshold. Decreasing this value will result in combing over a wider area.
+    int thdiff = 15
+        Judgment threshold that does not move. Increasing this value will determine that it is not moving in a wider area.
+
+1.2.2 KShowStatic
+
+  KShowStatic(clip, clip)
+
+  A filter that visualizes the analysis results of KAnalyzeStatic.
+
+    CUDA compatible: No
+    clip
+        KAnalyzeStatic clip
+    clip
+        Source clip
+
+1.2.2 KMergeStatic
+
+  KMergeStatic(clip, clip, clip)
+
+  A filter that merges the QTGMC output and source based on the KAnalyzeStatic results
+
+    CUDA support: Yes
+    clip
+        QTGMC output clip
+    clip
+        Source clip (assuming half the frame rate of the QTGMC clip)
+    clip
+        KAnalyzeStatic clip
+  
+1.3 Reverse telecine
+  Inverse Telecine Filters
+  KFM (KFM.dll) inverse telecine related filter
+
+1.3.1 KFMPad
+
+  KFMPad(clip)
+
+  Clip padded for analysis (necessary for input of KFMSuper etc.)
+
+    CUDA support: Yes
+    clip
+        Source clip
+
+1.3.2 KFMSuper
+
+  KFMSuper(clip, clip)
+
+  Field matching analysis clip (necessary for input such as KPreCycleAnalyze)
+
+    CUDA support: Yes
+    clip
+        Source clip
+    clip
+        KFMPad clip of source clip
+
+1.3.3 KCleanSuper
+  KCleanSuper(clip, int "thY", int "thC")
+
+  Remove streaks in static areas from KFMSuper
+
+    CUDA support: Yes
+    clip
+        KFMSuper clip
+    int thY = 10
+        Movement threshold of Y component that erases stripes
+    int thC = 8
+        Movement threshold of Chroma component that erases stripes
+
+1.3.4 KPreCycleAnalyze
+  KPreCycleAnalyze(clip, int "threshMY", int "threshSY", int "threshMC", int "threshSC")
+
+  Calculate field matching value for each frame (filter equivalent to the previous version of KFMFrameAnalyze)
+
+    CUDA support: Yes
+    clip
+        KFMSuper clip
+    int threshMY = 20
+        Movement threshold of Y component
+    int threshSY = 12
+        Y component stripe threshold
+    int threshMC = 24
+        Chroma component movement threshold
+    int threshSC = 16
+        Chroma component stripe threshold
+
+1.3.5 KFMSuperShow
+  KFMSuperShow(clip, int "threshMY", int "threshSY", int "threshMC", int "threshSC")
+
+  KFMSuper visualization debug filter. The calculation is the same as KPreCycleAnalyze, but it outputs a visualized clip.
+
+    CUDA compatible: No
+    The argument is the same as KPreCycleAnalyze, so the explanation is omitted.
+
+1.3.6 KFMDumpFM
+  KFMDumpFM(clip, string "filepath")
+
+  Output the result of KPreCycleAnalyze to a file. File output is completed when the last frame is output.
+
+    CUDA compatible: No
+    clip
+        KPreCycleAnalyze Clip
+    string filepath = "kfm.txt"
+        Output file path
+
+  The output is a text file in the following format
+
+  #shima, large shima, move
+  <shima>, <large shima>, <move>
+  <shima>, <large shima>, <move>
+  ...
+
+  The Nth line (excluding the first comment line) shima and large shima are the number of stripes in the Nth frame of the clip whose source is DoubleWeave (). For large shima, the number of large (= clearer) stripes whose threshold is determined to be 3 times that of shima. The move on the Nth line is the difference between the Nth frame and the N + 2nd frame of the clip whose source is SeparateFields ().
+
+Example of use
+
+  LWLibavVideoSource(srcpath, dominant = 1, repeat = True).OnCPU(4)
+  KFMSuper(KFMPad()).KCleanSuper().KPreCycleAnalyze().OnCUDA(4).KFMDumpFM("kfm_dump.txt")
+
+1.3.7 KFMCycleAnalyze
+
+  KFMCycleAnalyze(clip, clip, int "mode", float "lscale", float "costth", float "adj2224", float "adj30", int "range", float "thresh", int "past", float "th60" , float "th24", float "rel24", string "filepath", int "debug")
+
+  Judgment of pull-down pattern for each cycle from the result of KPreCycleAnalyze
+
+    CUDA compatible: No
+    clip
+        KPreCycleAnalyze Clip
+    clip
+        Source clip
+    int mode = 0
+        0: Normal (real-time best)
+        1: 1st multipath (output is best in real time)
+            Multipath has the effect of stabilizing the pattern using estimates from the patterns before and after. The judgment result is accumulated in the first pass, and the result in consideration of the patterns before and after is output in the second pass. The first pass needs to be output up to the last frame.
+        2: The second pass of multipath (outputs the result considering the patterns before and after)
+        Default: 0
+    float lscale = 5.0
+        Coefficient when adding large stripes (stripes that are 3 times or more the stripe threshold in KFMFrameAnalyze). The larger the size, the more important the "large stripes" are.
+    float costth = 1.5
+        24p Judgment cost threshold. If it is large, the judgment becomes strict and the cost value becomes large.
+    float adj2224 = 0.5
+        Weighting of 24fps without stripes (increasing the value makes it difficult to select the 24fps pattern without stripes, and decreasing it makes it easier to select)
+    float adj30 = 1.5
+        Weighting of 30fps (The larger the value, the harder it is to select the 30fps pattern, and the smaller the value, the easier it is to select) The following are the parameters for multipath.
+    int range = 5
+    float thresh = 1.0
+        These two are the parameters for pattern switching judgment. Pattern switching occurs when (sum of costs of past range cycles including current cycle)> (thresh * range). One cycle is 30fps for 5 frames.
+        You need to set adj2224 <thresh <adj30 to properly switch between stripless 24fps and 30fps.
+    int past = 180
+        At the time of pattern switching, the past pattern is also changed if the pattern after switching is the same as the best pattern. This is the number of cycles to be applied retroactively at this time.
+    float th60 = 3.0
+    float th24 = 0.1
+    float rel24 = 0.2
+        These three are parameters for 60fps judgment. Judgment is made as follows.
+            60fps if the cost is th60 or higher
+            24fps if the cost is th24 or less and the unreliability is rel24 or less
+            Other than that, it is estimated from the front and back
+    string filepath = "kfm_cycle.dat"
+        In multipath, the result of the first pass is output to a file, and the file is read in the second pass. File output file name.
+    int debug = 0
+        For debugging & parameter adjustment. When set to 1, the data in the middle of judgment of the first pass is output to "(filepath) .debug", and the final judgment result is output to "(filepath) .pattern".
+
+1.3.8 KTelecine
+  KTelecine(clip, clip, bool "show")
+
+  Reverse telecine conversion of the source clip from the result of KFMCycleAnalyze.
+
+    CUDA support: Yes
+    clip
+        Source clip
+    clip
+        KFMCycleAnalyze Clip
+    bool show = false
+        Judgment result is displayed in the upper left
+
+1.3.9 KTelecineSuper
+  KTelecineSuper(clip, clip)
+
+  Reverse telecine conversion of KFMSuper clips from the results of KFMCycleAnalyze.
+
+    CUDA support: Yes
+    clip
+        KFMSuper clip
+    clip
+        KFMCycleAnalyze Clip
+
+1.3.10 KSwitchFlag
+  KSwitchFlag(clip, float "thY", float "thC")
+
+  Create a flag to paste the striped part from the bob clip in the K Telecine clip
+
+    CUDA support: Yes
+    clip
+        KTelecine Super clip
+    float thY = 60
+        The fringe threshold of the Y component (larger makes the fringe judgment part smaller, and smaller makes it larger)
+    float thC = 80
+        The fringe threshold of the UV component (larger makes the fringe judgment part smaller, and smaller makes it larger)
+
+1.3.11 KContainsCombe
+  KContainsCombe (clip)
+
+  A clip that returns whether there is a part to be pasted from the bob clip in the KSwitchFlag clip
+
+    CUDA support: Yes
+    clip
+        KSwitchFlag clip
+
+1.3.11 KContainsCombe
+  KCombeMask (clip, clip)
+
+  Filter to mask KSwitchFlag
+
+    CUDA support: Yes
+    clip
+        Source clip (used to get only information such as screen size)
+    clip
+        KSwitchFlag clip
+
+1.3.12 KRemoveCombe
+  KRemoveCombe(clip, clip, float "thY", float "thC")
+
+  Stripes above the threshold are removed by blending
+
+    CUDA support: Yes
+    clip
+        KFMPad 24p clip
+    clip
+        KTelecineSuper clip (used for stripe judgment)
+    float thY = 6
+        The fringe judgment threshold of the Y component. If this value is small, it is determined that a wider area has stripes and is removed.
+    float thC = 6
+        UV component fringe judgment threshold. If this value is small, it is determined that a wider area has stripes and is removed.
+
+1.3.13 KPatchCombe
+  KPatchCombe(clip, clip, clip, clip, clip)
+
+  Replace the striped part of the K Telecine clip with a bob clip
+
+    CUDA support: Yes
+    clip
+        24p clip
+    clip
+        60p clip
+    clip
+        KFMCycleAnalyze Clip
+    clip
+        KCombeMask clip
+    clip
+        KContainsCombe clip
+
+1.3.13 KFMSwitch
+  KFMSwitch(clip, clip, clip, clip, clip, clip "ucfclip", float "thresh", int "mode", string "filepath", bool "show", bool "show flag")
+
+  Switch between 60p frame, 30p frame and 24p frame. The output is fixed at 60p.
+
+    CUDA support: Yes
+    clip
+        60p clip
+    clip
+        KFMCycleAnalyze Clip
+    clip
+        24p clip
+    clip
+        24p KCombeMask clip
+    clip
+        24p KContainsCombe clip
+    clip
+        30p clip
+    clip
+        30p KCombeMask clip
+    clip
+        30p KContainsCombe clip
+    clip
+        KDecomb UCF60 clip
+    float thswitch = 3.0
+        Threshold for switching between 60p and 24p/30p. Based on the 24p/30p cost output by KFMCycleAnalyze 
+        (the larger the value, the more likely it is not 24p/30p), 60p frames are output for cycles that exceed
+        the threshold value, and 24p/30p frames are output for cycles below the threshold value.
+    int mode = 0
+        0: Normal output
+        1: Output with frame duration added to frame (for VFR)
+        2: Output only frame duration (for VFR)
+        Default: 0
+    string filepath = "kfmswitch"
+        VFR information output file path
+            The timecode is output to filepath + "timecode.txt", and the frame duration is output to filepath + "duration.txt".
+    bool show = false
+        Display the judgment result in the upper left
+    bool showflag = false
+        In the frame judged as 24p/30p, the part acquired from the 60p frame is displayed in blue. (Not compatible with CUDA)
+
+1.3.14 KFMDecimate
+  KFMDecimate(clip, string "filepath")
+
+  Only valid frames are extracted from 60p clips based on the frame duration.
+
+    CUDA support: Yes
+    clip
+        60p clip
+    string filepath = "kfmswitch"
+        Path of VFR information file output by KFMSwitch
+            Read the frame duration (filepath + "duration.txt") in the VFR information
+
+1.4 Frame replacement around the scene change (DecombUCF)
+  Frame replacement filter around scene change of KFM (KFM.dll)
+
+  A filter that merges scene changes and converts it to CUDA, referring to Mr. A little's DecombUCF.
+
+1.4.1 KNoiseClip
+  KNoiseClip(clip, clip, int "nmin_y", int "range_y", int "nmin_uv", int "range_uv")
+
+  Noise analysis preprocessing filter for DecombUCF
+
+    clip
+        Source clip
+    clip
+        Noise detection clip (clip with Gaussian filter etc. applied to the source clip)
+    int nmin_y = 1
+    int range_y = 128
+    int nmin_uv = 1
+    int range_uv = 128
+
+1.4.2 KAnalyzeNoise
+  KAnalyzeNoise(clip, clip, clip "pad")
+
+  Noise analysis filter for DecombUCF
+
+    CUDA support: Yes
+    clip
+        Source clip
+    clip
+        KNoiseClip clip
+    clip "pad"
+        KFM Pad clip
+
+1.4.3 KDecombUCFParam
+  KDecombUCFParam(int "chroma", float "fd_thresh", int "th_mode", float "off_t", float "off_b", float "namax_thresh", float "namax_diff", float "nrt1y", float "nrt2y", float "nrt2x" ", float" nrw ", bool" show ", float" y1 ", float" y2 ", float" y3 ", float" y4 ", float" y5 ", float" x1 ", float" x2 ", float" x3 ", float" x4 ", float" x5 ")
+
+  DecombUCF parameter clip
+
+    CUDA support:-
+
+    int chroma = 1
+        [0-2] # (0: Y), (1: UV), (2: YUV) for noise detection
+
+    float fd_thresh = 128
+        [0-] #threshold of FieldDiff #fd_thresh = FieldDiff * 100 / (Width * Height)
+
+    int th_mode = 0
+        [1-2: debug] [3-7: normal] [8-10: restricted] #preset of diff threshold. You can also specify threshold by x1-x5 y1-y5 (need th_mode = 0).
+
+    float off_t = 0
+        offset for diff threshold of top field (first field, top, diff <0)
+
+    float off_b = 0
+        offset for diff threshold of bottom field (second field, botom, 0 <diff)
+
+    reverse (functions only with chroma = 0. If the absolute value of the noise amount is too large, it is considered as a video effect and leaves a field with large noise (the smaller one is flattened by block noise))
+        int namax_thresh = 82
+            82 # MX: 90 # [0-256] #disabled with chroma = 1 #upper limit of max noise for Noise detaction (75-80-83)
+        int namax_diff = 38
+            30-40 #disabled with chroma = 1 #If average noise> = namax_thresh, use namax_diff as diff threshold.
+
+    NR
+        float nrt1y = 28
+            28-29-30 #threshold for nr
+        float nrt2y = 36
+            36-36.5-37 #exclusion range
+        float nrt2x = 53.5
+            53-54-55 #exclusion range
+        float nrw = 2
+            1-2 #diff weight for nr threshold
+
+    bool show = false
+        Turn on debug display (actual behavior depends on each filter)
+
+    float y1, y2, y3, y4, y5, x1, x2, x3, x4, x5
+        Score calculation parameters
+
+1.4.4 KDecombUCF
+
+  KDecombUCF (clip, clip, clip, clip, clip, clip "nr")
+
+  Filter that analyzes 24p clips and applies them to 24p clips (equivalent to the original)
+
+    CUDA support: Yes
+    clip
+        Applicable 24p clip
+    clip
+        KDecombUCF Param Clip
+    clip
+        KAnalyzeNoise clip
+    clip
+        bob clip (for when the next field is dirty)
+    clip
+        bob clip (for when the previous field is dirty)
+    clip "nr"
+        NR clip (optional)
+
+  There are two bob clips because we are assuming a bob filter that interpolates from the front and back fields like QTGMC.
+  In other words, even if the previous field is selected to avoid the dirty field, the dirty field will be mixed due to the 
+  nature of the algorithm that interpolates from the previous and next fields. To avoid mixing dirty fields, I now type in
+  two clips, one interpolated without the next field and one interpolated without the previous field, and switch bob clips appropriately.
+
+  However, the original QTGMC does not have the option of not using the next field or the previous field.
+  KTGMC can switch this with useFlag. You can refer to the following usage example.
+
+  Example
+
+  TODO
+
+1.4.5 KDecombUCF24
+  KDecombUCF24 (clip, clip, clip, clip, clip, clip "nr")
+
+  A filter that analyzes 60i clips and applies them to 24p clips
+
+    CUDA support: Yes
+    clip
+        Applicable 24p clip
+    clip
+        KDecombUCF Param Clip
+    clip
+        KFMCycleAnalyze Clip
+    clip
+        KAnalyzeNoise clip
+    clip
+        bob clip (for when the next field is dirty)
+    clip
+        bob clip (for when the previous field is dirty)
+    clip "nr"
+        NR clip (optional)
+
+  Example
+
+  TODO
+
+1.4.6 KDecombUCF60
+  KDecombUCF60 (clip, clip, clip, clip, clip, clip "nr", float "sc_thresh", float "dup_factor")
+
+  A filter that analyzes 60i clips and applies them to 60p clips.
+
+    algorithm
+        Roughly speaking, the noise judgment by DecombUCF is used for the primary judgment, and the scene change judgment is used for the secondary judgment.
+            Use both to improve accuracy
+        Noise judgment by DecombUCF is performed for each frame with double-weave interlaced source.
+            The frame corresponding to the field judged to be dirty is called a "dirty frame".
+        Not all dirty frames will be replaced, only if both of the following two conditions are met:
+            Dirty frame before and after the scene change
+            The front or back of the frame used for replacement is stationary
+                If it is stationary, the frame is likely to be clean.
+                This will play during intense movements
+        In addition, one frame before and after the dirty frame, the bob clip is selected to avoid the dirty frame
+            That is, the dirty frame and one frame before and after it are replaced with the frame taken from the bob clip.
+
+    CUDA support: Yes
+
+    clip
+        Applicable 60p clip
+
+    clip
+        KDecombUCF Param Clip
+
+    clip
+        KAnalyzeNoise clip
+
+    clip
+        bob clip (for when the next field is dirty)
+
+    clip
+        bob clip (for when the previous field is dirty)
+
+    clip "nr"
+        NR clip (optional)
+
+    float sc_thresh = 256
+        The threshold value for determining whether the scene change is before or after the frame to be replaced. The smaller it is, the more frames will be considered as scene changes.
+
+    float dup_factor = 2.5
+        A threshold that determines if the frame used for replacement is stationary before or after. The smaller it is, the more frames will be considered stationary.
+
+  Example
+
+    srcpath = "..."
+    src = LWLibavVideoSource(srcpath, dominant = 1, repeat = True).OnCPU(2)
+    bob = src.KTGMC(Preset = "Faster")
+    before = src.KTGMC(Preset = "Faster", PrevGlobals = "Reuse", useFlag = 1)
+    after = src.KTGMC(Preset = "Faster", PrevGlobals = "Reuse", useFlag = 2)
+    fields = src.SeparateFields().Crop(4,4, -4, -4).Align()
+    noise = fields.KGaussResize(p = 2.5)
+    noise = src.KAnalyzeNoise(fields.KNoiseClip(noise), src.KFMPad()).OnCUDA(2)
+    bob.KDecombUCF60(KDecombUCFParam(), noise, before, after).OnCUDA(2)
+
+
+1.5 Image quality adjustment such as time axis averaging, banding reduction, edge enhancement, etc.
+
+  Post Processing Filters
+  Image quality adjustment filter for KFM (KFM.dll) 
+
+1.5.1 KTemporalNR
+  KTemporalNR(clip, int "dist", float "thresh")
+
+  Time axis averaging filter
+
+    CUDA support: Yes
+    clip
+        Source clip
+    int dist = 3
+        Maximum reference frame distance. The number of reference frames is dist * 2 + 1 including the source frame.
+    float thresh = 1 *
+        Pixel threshold for averaging. When set to 1, only the source pixel and ± 1 pixel are added and averaged.
+
+1.5.2 KDeband
+  KDeband(clip, int "range", float "thresh", int "sample", bool "blur_first")
+
+  Ported AviUtl banding reduction filter
+
+    CUDA support: Yes
+    clip
+        Source clip
+    int range = 25
+        Equivalent to the original range
+    float thresh = 1 *
+        Equivalent to the original Y, Cb, Cr. Only the same value can be set for Y, Cb, and Cr. The value is specified by the threshold value at the 8-bit pixel value without applying the original scale. If you set 1 for 8-bit source, it's almost OK
+    int sample = 1
+        Equivalent to the original sample
+    bool blur_first = false
+        Equivalent to the original "blurring first"
+
+1.5.3 KEdgeLevel
+  KEdgeLevel (clip, int "str", float "thrs", int "repair", bool "uv", bool "show")
+
+  Ported AviUtl edge level adjustment
+
+    CUDA support: Yes
+    clip
+        Source clip
+    int str = 10
+        Equivalent to the original "characteristics"
+    float thrs = 10 *
+        Corresponds to the original "threshold". However, since the scale is a threshold value with 8-bit pixel values, the original 25 is roughly equivalent to 10.
+    int repair = 0
+        0 is the same processing as the original. New algorithm processing with> 0.
+        New algorithm: "(repair + 1) / 2" times Edge level adjustment filter is applied and applied in the process equivalent to repair times Repair (mode = 3). The edge level adjustment applies an algorithm modified to apply only sweet edges from the target pixel.
+    bool uv = false
+        Equivalent to the original with false. If true, the chroma component is also processed.
+    bool show = false
+        Output edge judgment. If repair> 0, the edge judged by the last filter application out of "(repair + 1) / 2" times is output. (Not compatible with CUDA)
+
+  * If you enter a value based on 8 bits, it will automatically scale even with high bits. Note that since it is a float, the numbers after the decimal point are also valid.
+
+1.6 Source QP interlocking deblocking filter 
+
+  Deblocking
+
+  Source QP interlocking deblocking filter
+  
+1.6.1 KDeblock
+  KDeblock(clip, int "quality", float "str", float "thr", float "bratio", clip "qpclip", int "qp", bool "soft", int "show")
+
+  Source QP interlocking deblocking filter.
+  The deblocking method is introduced in JPEG Post-Processing, and it is a filter with the same algorithm as FFmpeg's spp and AviSynth's SmoothD.
+  The difference from SmoothD is that instead of applying quant uniformly to the whole, the strength to apply in block units is variable from the
+  QP table of the MPEG2 source. The original paper states that quant is best done with the same value as the source, and FFmpeg's spp is implemented
+  that way, but AviSynth's SmoothD and its derivative filters use the source's QP value.
+  Since it is applied uniformly without it, it is a so-called "incomplete filter" that is strongly applied to places with little noise and blurs.
+  KDeblock is a "perfect filter" that uses the QP value of the source to change the applied strength depending on the degree of compression.
+  FFmpeg's spp is also a "perfect filter" that uses the source QP value, but with fewer parameters.
+  In KDeblock, the QP value consideration ratio of B frame, the threshold value of the QP value to be applied, the overall strength, etc. can be set by parameters.
+  In addition to the CUDA version, this filter is also implemented in the AVX version, which allows the CPU to process at high speed.
+  (Of course, the speed is not comparable to the CUDA version)
+  In order to get the QP value of the source, the source filter needs to support the output of the QP value,
+  and currently only AMTSource of Amatsukaze supports this, so other than Amatsukaze, the source Processing using the QP value of is not possible.
+  (That is, if you don't use Amatsukaze, you end up with an "incomplete filter")
+
+    CUDA support: Yes
+    clip
+        Source clip. If the "qpclip" below is not specified, the QP table will be retrieved from this clip.
+    int quality = 3
+        The number of times DCT / IDCT is applied. Apply (2<<quality) times. Valid values ​​are 1-6.
+    float str = 0
+        Strength to apply. If it is 0, it will be requantized with the same value as the source QP value.
+        The smaller it is, the weaker it is, and the larger it is, the stronger it is applied.
+        Since the quantization level becomes 0 at -4.0, the minimum value is -4.0.
+    float thr = 0
+        QP lower threshold to apply. Applies only to blocks with a QP value greater than this.
+        The QP value is positive, so valid values ​​are greater than or equal to 0.
+        Where the QP value is small (low compression), the filter is weakly applied from the original algorithm, but by setting this threshold, blocks with a QP value smaller than the threshold will be filtered completely. It can be prevented from applying. By increasing the threshold value, the filter can be applied only where the QP value is large (that is, where the block noise is generated due to high compression).
+    float bratio = 0.5
+        Consideration ratio of QP value of B frame. Since the original paper targeted an image compression codec called JPEG, there was only one QP table to refer to, but in MPEG2 video, the difference between P frame and B frame is recorded from other frames. , The quality of the reference frame must also be considered. Generally, the difference image of the B frame is compressed with a high QP value, so if you look only at the QP value of that frame, there will be a difference in the QP value between the B frame and other than the B frame, which is not possible. It becomes a stable filter. Therefore, in KDeblock, in the case of B frame, the QP value of the B frame and the QP value of the frame other than the immediately preceding B frame are seen, and the QP value to be applied is calculated according to the following formula. doing.
+        (Applicable QP value) = (B frame QP value) * bratio + (QP value of frames other than the previous B frame) * (1-bratio)
+    clip qpclip
+        Clip for QP value source. Use this when you want to enter the QP value separately from the source clip. (For example, if there is a filter between the source filter and KDeblock that does not preserve the frame properties)
+    int qp = -1
+        Use this when you want to apply the QP value uniformly to the whole, not from the source. Note that if the source does not have a QP value and no qp is specified, the filter will be disabled.
+    bool soft = false
+        The method of applying requantization becomes soft. It's an algorithm implemented in FFmpeg's spp, but it doesn't make much sense because it just blurs the whole thing.
+    int show = 0
+        Add a debug display. There are the following modes
+            1: Show in the upper left whether the source QP value is used, qp specified, or disabled
+            2: Blocks with a QP value above the threshold are displayed in blue.
+
+1.6.2 QPClip
+  QPClip(clip)
+
+  Returns a clip with only the QP value extracted from the source clip. Since the amount of data in the QP value is small, the amount of memory used can be reduced depending on how it is used.
+
+    CUDA support: Yes
+
+1.6.3 ShowQP
+  ShowQP(clip, bool "nonb")
+
+  Convert the QP value of the source clip to frame data. You can see the QP table as an image. Since the QP value is one for every 16x16 block, the clip size will be (ceil (width / 16), ceil (height / 16)) if the source clip size is (width, height).
+
+    CUDA support: Yes
+    clip
+        Source clip
+    bool nonb = false
+        When set to true, the QP value of a frame other than the immediately preceding B frame is converted to frame data. (If false, the QP value of that frame including the B frame)
+
+1.6.4 ShowQP
+
+  FrameType (clip)
+
+  Returns a frame type such as I, P, B. This is a run-time filter used in ScriptClip etc. The type conforms to FFmpeg's AV Picture Type. (I = 1, P = 2, B = 3)
+
+  * Note that these filters depend on the frame properties returned by Amatsukaze's AMTSource, so they can only be used with clips returned by Amatsukaze's AMTSource.
+
+2. KTGMC
+
+  KTGMC is a CUDA port of QTGMC.
+
+2.1 Installation
+
+  The following three files and CUDA capable AviSynth+ (AviSynthNeo) are required for operation.
+  DLLs should match with the appropriate Avisynth+ version.
+  
+  DLLs of pinterf fork should match with the classic Avisynth+
+  DLLs of Nekopanda should match with AvisynthNeo
+
+    KTGMC.avsi
+    KTGMC.dll
+    KNNEDI3.dll
+
+  Operating environment
+  Works with NVIDIA GPUs with compute capability 3.5 and above. Please check https://developer.nvidia.com/cuda-gpus for the compatibility of your GPU.
+  
+  pinterf's fork is built with Visual Studio 2019 and CUDA SDK 11.2. This limits the video cards.
+  For compatible driver versions see https://docs.nvidia.com/cuda/cuda-toolkit-release-notes/index.html
+  E.g. CUDA 11.2.0 GA requires Windows driver version >= 460.82
+  But CUDA 11.2.1 Update 1 requires >= 461.09
+
+2.2 How to use
+
+Please use it by enclosing it with OnCPU and OnCUDA.
+
+  SetMemoryMax(2048, type=DEV_TYPE_CUDA)
+  srcfile = "..."
+  LWLibavVideoSource (srcfile)
+  OnCPU(2).KTGMC(SourceMatch = 3, Lossless = 2, tr0 = 1, tr1 = 1, tr2 = 1).OnCUDA(2)
+
+  See AviSynth documentation (Avisynth Neo wiki or Avs+ wiki on Avisynth.nl) for a detailed explanation of OnCPU, OnCUDA, and SetMemoryMax.
+
+  By default, the maximum memory is 768MB, which is not enough, so it is better to set CUDA memory to about 2GB with SetMemoryMax.
+
+  Some GPUs may not have that much memory, so in that case you have to raise the Preset to make the process easier.
+  If Preset = "Fast" or higher, the default 768MB will not cause any performance degradation.
+
+2.3 function KTGMC
+
+  function KTGMC(...)
+
+  This is the CUDA version of QTGMC. The arguments are basically the same as QTGMC. See the explanation below for the support status. Both input and output are CUDA frames.
+
+  Additional arguments
+
+    int useFlag = 0
+        The following values ​​are available
+            0: Normal processing
+            1: Interpolate using only the previous field
+            2: Interpolate using only the later fields
+        Assumed to be used with Decomb UCF. Normally, the fields before and after are used for interpolation, so if there are dirty fields before and after, the dirty fields will be mixed and output. Setting useFlag to 1 or 2 allows you to avoid dirty fields and generate interpolated frames.
+    int dev = 0
+        GPU to use (0 ~)
+    int analyzeBatch = 4
+        KTGMC_MAnalyze Number of frames processed in one call
+        Depending on the image size and block size, if only one frame is used, the number of parallel frames may be insufficient and the performance may deteriorate, so multiple images are processed together.
+
+  KTGMC limit
+
+  Currently, the only supported format is YV12 (8bit).
+  Enter the number of vertical and horizontal pixels in multiples of 4.
+  There are many unimplemented features. Preset supports Slower to Faster if no other parameters are specified. It also supports Source Match and Lossless.
+
+  If you try to use an unsupported function, you will get a "Device unmatch" error. Adjust the parameters and use only the corresponding functions.
+
+  Up to 2 TRs are supported.
+  Noise removal is not supported.
+  Motion detection overlap only supports half the size of Block size. (That is, 16 when Blocksize = 32, 8 only when Blocksize = 16)
+  Preset = "Very Faster" and above will result in an error because Blocksize = 32 and Overlap = 8.
+
+  EDI only supports NNEDI3. Please note that if you specify 1 or more for Source Match with Preset = "Faster", you will try to use Yadif that does not support it.
+
+  The internal processing is optimized to get frames in the forward direction, so returning in the editor may be slow.
+
+2.4 KNNEDI3 (...)
+
+  This is the CUDA version of NNEDI3. The arguments are the same as NNEDI3. It also supports CPU processing, so if you call it on the CPU side, it will operate in the same way as NNEDI3.
+
+  KNNEDI3 limit
+
+  I've (Nekopanda) only tested with field = -2, dh = false, so I don't think the others will work.
+  It does not support RGB or YUY2. I think it works with YUV planar, but I haven't tried anything other than YV12.
+  Since internal calculation only supports int16 out of int16 / float, 16bit does not work reliably. It may work up to 15bit.
+  If fapprox&2 is not specified, it will not work because it will be a float operation. pscrn only supports 2 or more. The opt and threads options are not relevant for CUDA operation.
+  
+2.5 KSMDegrain limit
+
+  The following arguments can only have the following values
+
+    tr: 1,2
+    pel: 1,2
+    blksize: 8,16,32
