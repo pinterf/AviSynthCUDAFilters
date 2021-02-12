@@ -1,14 +1,14 @@
-#AviSynth CUDA Filters
+# AviSynth CUDA Filters
 
 CUDA implementation filter plugin for [AviSynth+].
 The following projects are available.
 
---KTGMC (CUDA version of QTGMC)
---KNNEDI3 (CUDA version of NNEDI3)
---KFM (proprietary filter)
---AvsCUDA (CUDA compatible version of some AviSynth internal filters)
---GRunT (Neo compatible version GrunT)
---KMaskTools (CUDA Version of lut and lutxy from masktools)
+- KTGMC (CUDA version of QTGMC)
+- KNNEDI3 (CUDA version of NNEDI3 - as submodule)
+- KFM (proprietary filter)
+- AvsCUDA (CUDA compatible version of some AviSynth internal filters)
+- GRunT (Neo compatible version GrunT)
+- KMaskTools (CUDA Version of lut and lutxy from masktools  - as submodule)
 
 # How to use
 
@@ -17,17 +17,21 @@ The following projects are available.
 In English: see documentation folder
 
 Original links to Nekopanda's wiki:
-[Avisynth Neo documentation] (https://github.com/nekopanda/AviSynthPlus/wiki/Avisynth-Neo)
-[KTGMC documentation] (https://github.com/nekopanda/AviSynthCUDAFilters/wiki/KTGMC)
-[KFM documentation] (https://github.com/nekopanda/AviSynthCUDAFilters/wiki/KFM) for how to use the filters.
-Most of the functions can be used around deinterlacing by using [KFMDeint] (https://github.com/nekopanda/AviSynthCUDAFilters/wiki/KFMDeint).
+
+[Avisynth Neo documentation](https://github.com/nekopanda/AviSynthPlus/wiki/Avisynth-Neo)valami
+
+[KTGMC documentation](https://github.com/nekopanda/AviSynthCUDAFilters/wiki/KTGMC)
+
+[KFM documentation](https://github.com/nekopanda/AviSynthCUDAFilters/wiki/KFM) for how to use the filters.
+
+Most of the functions can be used around deinterlacing by using [KFMDeint](https://github.com/nekopanda/AviSynthCUDAFilters/wiki/KFMDeint).
 
 #License
---KTGMC: GPL
---KNNEDI3: GPL
---KFM: ** MIT **
---AvsCUDA: GPL
---GRunT: GPL 
+- KTGMC: GPL
+- KNNEDI3: GPL
+- KFM: ** MIT **
+- AvsCUDA: GPL
+- GRunT: GPL
 
 Original content in Japanese
 # AviSynth CUDA Filters
@@ -51,4 +55,3 @@ Original content in Japanese
 - KFM: **MIT**
 - AvsCUDA: GPL
 - GRunT: GPL
-
