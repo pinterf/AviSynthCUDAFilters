@@ -7,97 +7,137 @@ When PNeoEnv in avisynth.h is changed, these filters should be rebuilt with the 
 (Same as was the case for IScriptEnvironment2)
 
 Work in progress; changes after Avisynth+ v3.7 release are required in order to compile (plus of course the
-cuda option - normal Avisynth+ does not comes with CUDA-aware internals)
+CUDA option - normal Avisynth+ does not comes with CUDA-aware internals)
 As of 20210209: Avisynth+ source (https://github.com/AviSynth/AviSynthPlus), plus Avisynth.h from here
 together are enough to compile Avisynth with ENABLE_CUDA define, CMakeList.txt supports the option as well.
 
-Visual Studio 2019 and CUDA SDK 11.2 is required. This limits the video cards.
+Visual Studio 2019 and CUDA SDK 11.2 is required. 
+
+Each SDK version requires a minimum NVidia driver version. Older video cards which have reached their EndOfLife
+and are not receiving new drivers, are left unsupported; our programs made with SDK 11.2 won't run on them.
+
 For compatible driver versions see https://docs.nvidia.com/cuda/cuda-toolkit-release-notes/index.html
 
 Process of transition (kept for reference)
 
 0.) Download and install NVidia CUDA SDK 11.2.
+    As of 2021 March the latest version is 11.2 Update 1
     https://developer.nvidia.com/Cuda-downloads
+    You can choose the Network Install, Special.
+    For CUDA development point of view you can ignore Physics in Other Components.
+    When your system is a non-NVidia one then uncheck Driver Components as well.
+    (Actual driver version is 461.09)
+    Under "CUDA" Development and VS Integration are the key components.
     This will integrate with the existing Visual Studio 2019 (BuildCustomization files)
     Build process can be done even on a non-NVidia system.
-1.) Original repo AvisynthCUDAFilters forked from Nekopanda to pinterf
+1.) Grab the "core": AvisynthCUDAFilters.
+    Original repo AvisynthCUDAFilters forked from Nekopanda to pinterf in order to make the
+    necessary modifications to work with current Avisynth+ 3.7.
     https://github.com/nekopanda/AviSynthCUDAFilters
     https://github.com/pinterf/AviSynthCUDAFilters
-2.) masktools and NNEDI3 cuda modifications back to pinterf repo
-2.1) masktools things
-    masktools was/is maintanined at pinterf's repo.
-    Nekopanda developed a cuda branch implementing lut and lutxy.
-2.2.1) fetch back 'cuda' branch of Nekopanda's fork to pinterf repo
-    command: git fetch git://github.com/nekopanda/masktools.git cuda:cuda
-2.2.2) Then update dev.environment and source of cuda branch.
-    - Visual Studio 2019
+    Info: AvisynthCUDAFilters has some core component, but includes two external
+    classic Avisynth plugins: NNEDI3 ans masktools; both as git submodule.
+2.) Let's fork Nekopanda's masktools and NNEDI3 cuda branch to pinterf repo.
+    Neo created a new 'cuda' branch for both, so it was enough to import only 'cuda'.
+2.1) The first submodule: masktools
+    masktools2 was/is maintained at pinterf's repo.
+    Nekopanda developed a cuda branch: implementing lut and lutxy named with 'k' prefix.
+    The other filters in it were mainly untouched, only the framework was established.
+2.2.1) 
+    So we leave the existing masktools as is, and fetch back the new 'cuda' branch 
+    of Nekopanda's fork to pinterf's existing repo.
+    From masktools2 repo root folder: 
+      git fetch git://github.com/nekopanda/masktools.git cuda:cuda
+    Now we have duplicated Nekopanda's cuda branch into to our existing repo.
+2.2.2) 
+    Next we update the development environment and source of cuda branch.
+    (Old one was for CUDA SDK 8.0 and VS2015)
+    - Opened the solution with Visual Studio 2019
     - CUDA SDK 11.2
-    - (Copy of AvisynthCUDAFilters/common content for standalone build)
-    - Updated Avisynth headers + change common files where NeoEnv syntax has been changed.
+    - In order to have cuda masktools to build standalone (not as AvisynthCUDAFilters subproject),
+      we have to copy AvisynthCUDAFilters/common content to masktools2 folder.
+    - Then updated Avisynth+ headers
+    - Apply change to 'common' source files where PNeoEnv syntax is different.
+      (naming is mostly kept, but frame property handling is totally different)
     - folder reorganizations
-2.2) nnedi3 things
-2.2.1 Fork repo from jpsdr to pinterf. https://github.com/jpsdr/NNEDI3.git
-2.2.2 clone https://github.com/pinterf/NNEDI3.git
-2.2.3 Fetching the new 'cuda' branch from Nekopanda's nnedi3 fork
+2.2) nnedi3 things.
+     Spoiler: the cuda branch of this project cannot be built separately yet (like masktools); only
+     as a submodule of AvisynthCUDAFilters.
+2.2.1 Since I didn't have NNEDI3, I have forked the master repo from jpsdr to pinterf. 
+      https://github.com/jpsdr/NNEDI3.git
+2.2.2 Once forked, cloned it locally from https://github.com/pinterf/NNEDI3.git
+2.2.3 Now we'll add a new branch 'cuda' which we are importing from Nekopanda.
+      Fetching the new 'cuda' branch from Nekopanda's nnedi3 fork:
 
-git fetch git://github.com/nekopanda/NNEDI3.git cuda:cuda
+  git fetch git://github.com/nekopanda/NNEDI3.git cuda:cuda
 
-command result:  
-  remote: Enumerating objects: 64, done.
-  remote: Counting objects: 100% (64/64), done.
-  remote: Total 94 (delta 64), reused 64 (delta 64), pack-reused 30
-  Unpacking objects: 100% (94/94), 20.58 KiB | 28.00 KiB/s, done.
-  From git://github.com/nekopanda/NNEDI3
-  * [new branch]      cuda       -> cuda
+  command result:  
+    remote: Enumerating objects: 64, done.
+    remote: Counting objects: 100% (64/64), done.
+    remote: Total 94 (delta 64), reused 64 (delta 64), pack-reused 30
+    Unpacking objects: 100% (94/94), 20.58 KiB | 28.00 KiB/s, done.
+    From git://github.com/nekopanda/NNEDI3
+    * [new branch]      cuda       -> cuda
 
-2.2.4 Change to 'cuda' branch, upadte project.
+2.2.4 Change to 'cuda' branch, update project 
+    (from Cuda SDK 8.0+VS2015)
     - Visual Studio 2019
     - CUDA SDK 11.2
 
+3.) Next we have to update AvisynthCUDAFilters project.
 
-3.) AvisynthCUDAFilters has three submodules that are still pointed to the original url (Nekopanda repo)
-    These are to be changed.
-3.1) redirect masktools submodule to pinterf's masktools
-From repo's root (Developer Command Prompt) issue commands
+    AvisynthCUDAFilters has three git submodules that are still pointed to the original url (Nekopanda repo)
+    These are: masktools, NNEDI3 and googletest
+    The first two are to be changed.
+    
+3.1) In AvisynthCUDAFilters git config we are going to redirect masktools submodule 
+     to pinterf's masktools
 
-git config --file=.gitmodules submodule.masktools.url https://github.com/pinterf/masktools.git
-git config --file=.gitmodules submodule.masktools.branch cuda
-git config --file=.gitmodules -l
+3.1.1 From repo's root (Developer Command Prompt) issue the following commands:
 
-command result with the changes masktools url path
-  submodule.googletest.path=googletest
-  submodule.googletest.url=https://github.com/nekopanda/googletest.git
-  submodule.nnedi3.path=nnedi3
-  submodule.nnedi3.url=https://github.com/nekopanda/NNEDI3.git
-  submodule.masktools.path=masktools
-  submodule.masktools.url=https://github.com/pinterf/masktools.git
-  submodule.masktools.branch=cuda
+  git config --file=.gitmodules submodule.masktools.url https://github.com/pinterf/masktools.git
+  git config --file=.gitmodules submodule.masktools.branch cuda
+  git config --file=.gitmodules --list
 
-git submodule sync
+  command result with the changes masktools url path
+    submodule.googletest.path=googletest
+    submodule.googletest.url=https://github.com/nekopanda/googletest.git
+    submodule.nnedi3.path=nnedi3
+    submodule.nnedi3.url=https://github.com/nekopanda/NNEDI3.git
+    submodule.masktools.path=masktools
+    submodule.masktools.url=https://github.com/pinterf/masktools.git
+    submodule.masktools.branch=cuda
 
-command result:
-  Synchronizing submodule url for 'googletest'
-  Synchronizing submodule url for 'masktools'
-  Synchronizing submodule url for 'nnedi3'
+3.1.2 Finalize the config url changes to git.
 
-Now the file .git/modules/masktools/config is changed as:
+  git submodule sync
 
-[core]
-	repositoryformatversion = 0
-	filemode = false
-	bare = false
-	logallrefupdates = true
-	symlinks = false
-	ignorecase = true
-	worktree = ../../../masktools
-[remote "origin"]
-	url = https://github.com/pinterf/masktools.git
-	fetch = +refs/heads/*:refs/remotes/origin/*
-[branch "cuda"]
-	remote = origin
-	merge = refs/heads/cuda
+  command result:
+    Synchronizing submodule url for 'googletest'
+    Synchronizing submodule url for 'masktools'
+    Synchronizing submodule url for 'nnedi3'
 
-git submodule update --init --recursive --remote
+  Check: the file .git/modules/masktools/config is changed as:
+
+    [core]
+      repositoryformatversion = 0
+      filemode = false
+      bare = false
+      logallrefupdates = true
+      symlinks = false
+      ignorecase = true
+      worktree = ../../../masktools
+    [remote "origin"]
+      url = https://github.com/pinterf/masktools.git
+      fetch = +refs/heads/*:refs/remotes/origin/*
+    [branch "cuda"]
+      remote = origin
+      merge = refs/heads/cuda
+
+3.1.3 Update the submodule's source from our new own repo
+  This will init all submodules of the root repo.
+  
+  git submodule update --init --recursive --remote
 
 command result:
   remote: Enumerating objects: 585, done.
@@ -123,74 +163,82 @@ command result:
   Submodule path 'nnedi3': checked out 'a603395436e874c4d3012019ae7b3727375a1328'
 
 3.2) Redirect NNEDI3
-redirect NNEDI3 submodule to pinterf's NNEDI3
-From AvisynthCUDAFilters repo's root (Developer Command Prompt) issue commands
+    In AvisynthCUDAFilters git config we are going to redirect NNEDI3 submodule 
+    to pinterf's NNEDI3
 
-git config --file=.gitmodules submodule.nnedi3.url https://github.com/pinterf/NNEDI3.git
-git config --file=.gitmodules submodule.nnedi3.branch cuda
-git config --file=.gitmodules -l
+3.2.1) From AvisynthCUDAFilters repo's root (Developer Command Prompt) issue commands
 
-command result with the changed nnedi3 url path
-  submodule.googletest.path=googletest
-  submodule.googletest.url=https://github.com/nekopanda/googletest.git
-  submodule.nnedi3.path=nnedi3
-  submodule.nnedi3.url=https://github.com/pinterf/NNEDI3.git
-  submodule.nnedi3.branch=cuda
-  submodule.masktools.path=masktools
-  submodule.masktools.url=https://github.com/pinterf/masktools.git
-  submodule.masktools.branch=cuda
+  git config --file=.gitmodules submodule.nnedi3.url https://github.com/pinterf/NNEDI3.git
+  git config --file=.gitmodules submodule.nnedi3.branch cuda
+  git config --file=.gitmodules --list
 
-git submodule sync
+  command result with the changed nnedi3 url path
+    submodule.googletest.path=googletest
+    submodule.googletest.url=https://github.com/nekopanda/googletest.git
+    submodule.nnedi3.path=nnedi3
+    submodule.nnedi3.url=https://github.com/pinterf/NNEDI3.git
+    submodule.nnedi3.branch=cuda
+    submodule.masktools.path=masktools
+    submodule.masktools.url=https://github.com/pinterf/masktools.git
+    submodule.masktools.branch=cuda
 
-command result:
-  Synchronizing submodule url for 'googletest'
-  Synchronizing submodule url for 'masktools'
-  Synchronizing submodule url for 'nnedi3'
+3.2.2 Finalize the config url changes to git.
 
-Now the file .git/modules/nnedi3/config is changed as:
+  git submodule sync
 
-[core]
-	repositoryformatversion = 0
-	filemode = false
-	bare = false
-	logallrefupdates = true
-	symlinks = false
-	ignorecase = true
-	worktree = ../../../nnedi3
-[remote "origin"]
-	url = https://github.com/pinterf/NNEDI3.git
-	fetch = +refs/heads/*:refs/remotes/origin/*
-[branch "cuda"]
-	remote = origin
-	merge = refs/heads/cuda 
+  command result:
+    Synchronizing submodule url for 'googletest'
+    Synchronizing submodule url for 'masktools'
+    Synchronizing submodule url for 'nnedi3'
 
-git submodule update --init --recursive --remote
+  Check it: the file .git/modules/nnedi3/config is changed as:
 
-command result:
-remote: Enumerating objects: 122, done.
-remote: Counting objects: 100% (122/122), done.
-remote: Compressing objects: 100% (42/42), done.
-remote: Total 128 (delta 96), reused 106 (delta 80), pack-reused 6
-Receiving objects: 100% (128/128), 78.65 KiB | 982.00 KiB/s, done.
-Resolving deltas: 100% (97/97), completed with 31 local objects.
-From https://github.com/pinterf/NNEDI3
-   d1a966e..820dec4  cuda       -> origin/cuda
-   a603395..e33f431  master     -> origin/master
- * [new tag]         0.9.4.57   -> 0.9.4.57
- * [new tag]         0.9.4.8    -> 0.9.4.8
- * [new tag]         v0.9.4.13  -> v0.9.4.13
- * [new tag]         0.9.4.52   -> 0.9.4.52
- * [new tag]         0.9.4.53   -> 0.9.4.53
- * [new tag]         0.9.4.54   -> 0.9.4.54
- * [new tag]         0.9.4.55   -> 0.9.4.55
- * [new tag]         0.9.4.56   -> 0.9.4.56
-Submodule path 'nnedi3': checked out '820dec444baa383c0c7b86ee46566f0c61d98127'
+  [core]
+    repositoryformatversion = 0
+    filemode = false
+    bare = false
+    logallrefupdates = true
+    symlinks = false
+    ignorecase = true
+    worktree = ../../../nnedi3
+  [remote "origin"]
+    url = https://github.com/pinterf/NNEDI3.git
+    fetch = +refs/heads/*:refs/remotes/origin/*
+  [branch "cuda"]
+    remote = origin
+    merge = refs/heads/cuda 
+
+3.1.3 Update the submodule's source from our new own repo
+  This will init all submodules of the root repo.
+
+  git submodule update --init --recursive --remote
+
+  command result:
+    remote: Enumerating objects: 122, done.
+    remote: Counting objects: 100% (122/122), done.
+    remote: Compressing objects: 100% (42/42), done.
+    remote: Total 128 (delta 96), reused 106 (delta 80), pack-reused 6
+    Receiving objects: 100% (128/128), 78.65 KiB | 982.00 KiB/s, done.
+    Resolving deltas: 100% (97/97), completed with 31 local objects.
+    From https://github.com/pinterf/NNEDI3
+       d1a966e..820dec4  cuda       -> origin/cuda
+       a603395..e33f431  master     -> origin/master
+     * [new tag]         0.9.4.57   -> 0.9.4.57
+     * [new tag]         0.9.4.8    -> 0.9.4.8
+     * [new tag]         v0.9.4.13  -> v0.9.4.13
+     * [new tag]         0.9.4.52   -> 0.9.4.52
+     * [new tag]         0.9.4.53   -> 0.9.4.53
+     * [new tag]         0.9.4.54   -> 0.9.4.54
+     * [new tag]         0.9.4.55   -> 0.9.4.55
+     * [new tag]         0.9.4.56   -> 0.9.4.56
+    Submodule path 'nnedi3': checked out '820dec444baa383c0c7b86ee46566f0c61d98127'
 
 4.) copy avisynth.lib to lib\x64\ and lib\x86\
     (Obtained from the Output folder when building Avisynth+)
+    (? I don't know why this one is needed)
 
 5.) (to-do)
-    - update google tests
+    - update google tests (and figure out how they were used)
     - masktools: make a smarter way of reusing 'common' folder in submodules,
       and still allowing them to build separately.
       cuda and main fork differs inconveniently, even the placement of sln file
@@ -203,13 +251,19 @@ Submodule path 'nnedi3': checked out '820dec444baa383c0c7b86ee46566f0c61d98127'
 6.) Quickies for myself:
 - When a submodule is changed, in AvisynthCUDAFilters command prompt
     git submodule update --init --recursive --remote
-- On avisynth.h change:
-  Rebuild avisynth (with cuda option), we'll need
+  (AvisynthCUDAFilters builds NNEDI3 and Kmasktools, since they are submodules there)
+- What to do them PNeoEnv interface in avisynth.h is changed?
+  Whenever there is change in PNeoEnv (in avisynth.h), every filter using PNeoEnv 
+  should be rebuild as well with the new avisynth.h header.
+  
+  So each Avisynth version with different PNeoNev needs a new set of matching plugins.
+
+  Rebuild avisynth (with CUDA option), we'll need
     Copy AviSynthPlus\Output\c_api\avisynth.lib to lib\x64\ and lib\x86\
     Avisynth+\Output\Avisynth.dll
   Update masktools 'cuda' branch (separate project!) in masktools/include/avisynth.h, push to git
   Refresh AvisynthCUDAFilters submodules: git submodule update --init --recursive --remote
-    (that will bringa back masktools changes)
+    (that will bring back masktools changes)
   Update AvisynthCUDAFilters/include/avisynth.h
 - Build:
   build solution, for x64: check AviSynthCUDAFilters\x64\Release\
@@ -224,11 +278,17 @@ Submodule path 'nnedi3': checked out '820dec444baa383c0c7b86ee46566f0c61d98127'
       KTGMC.avsi
       KSMDegrain.avsi
     Other
-      KMaskTools.dll (kmt_lut and kmt_lutxy, can safely live beside masktools2.dll)
+      KMaskTools.dll (kmt_lut and kmt_lutxy, can safely live besides masktools2.dll)
     Remarks:
       KUtil.dll (generic plugin; contains one function: IsProcess(string "processname") e.g. one can check is script is run from avspmod) 
       GRunT.dll (much less functions than original one, using Global variable frame, and relies on actual PNeoEnv)
       KDebugTool.dll - for debug: Time check for profiling and Image comparer)
-  Add matching Avisynth+
-    Avisynth+/Output/Avisynth.dll
+  Obtain the matching Avisynth+
+    Build Avisynth+ on your own.
+    Download CMake 3.19.5 or newer and use CMakeGUI.
+    The open the solution and build.
 
+    Or build from command line.
+    
+    Find the DLL here Avisynth+/Output/Avisynth.dll
+    Or ask someone to do it for you :)
